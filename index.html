@@ -6,490 +6,341 @@
 <title>SmartGate · WiFi 設定</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap');
-
   :root {
-    --bg:       #0d0f14;
-    --surface:  #161922;
-    --border:   #252a35;
-    --accent:   #00e5a0;
-    --accent2:  #0099ff;
-    --text:     #e8eaf0;
-    --muted:    #5a6070;
-    --error:    #ff4d6a;
-    --warn:     #ffb74d;
-    --radius:   12px;
-    --mono:     'JetBrains Mono', monospace;
-    --sans:     'Noto Sans TC', sans-serif;
+    --bg:#0d0f14; --surface:#161922; --border:#252a35;
+    --accent:#00e5a0; --accent2:#0099ff;
+    --text:#e8eaf0; --muted:#5a6070;
+    --error:#ff4d6a; --warn:#ffb74d;
+    --radius:12px;
+    --mono:'JetBrains Mono',monospace; --sans:'Noto Sans TC',sans-serif;
   }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    padding: 24px 16px 40px;
-    gap: 0;
-  }
-
-  /* ── Header ── */
-  header {
-    width: 100%;
-    max-width: 420px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 32px;
-  }
-  .logo {
-    width: 40px; height: 40px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .logo svg { width: 22px; height: 22px; }
-  header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: .02em; }
-  header p  { font-size: .75rem; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
-
-  /* ── Card ── */
-  .card {
-    width: 100%;
-    max-width: 420px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  /* ── Status bar ── */
-  .status-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    border-radius: 8px;
-    background: #1a1d26;
-    border: 1px solid var(--border);
-    font-family: var(--mono);
-    font-size: .78rem;
-  }
-  .dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--muted);
-    flex-shrink: 0;
-    transition: background .3s;
-  }
-  .dot.connected   { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-  .dot.connecting  { background: var(--warn);   animation: pulse 1s infinite; }
-  .dot.error       { background: var(--error); }
-  @keyframes pulse {
-    0%,100% { opacity: 1; } 50% { opacity: .3; }
-  }
-  #statusText { color: var(--muted); flex: 1; }
-
-  /* ── Section label ── */
-  .label {
-    font-size: .7rem;
-    font-family: var(--mono);
-    color: var(--muted);
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-
-  /* ── Field ── */
-  .field { display: flex; flex-direction: column; gap: 6px; }
-
-  .input-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-  input[type=text], input[type=password] {
-    width: 100%;
-    background: #1a1d26;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: .88rem;
-    padding: 11px 14px;
-    outline: none;
-    transition: border-color .2s;
-    -webkit-appearance: none;
-  }
-  input:focus { border-color: var(--accent2); }
-  input::placeholder { color: var(--muted); }
-  input:read-only { color: var(--accent); }
-
-  .badge {
-    position: absolute;
-    right: 10px;
-    background: #252a35;
-    border: 1px solid var(--border);
-    color: var(--accent);
-    font-family: var(--mono);
-    font-size: .65rem;
-    padding: 2px 7px;
-    border-radius: 4px;
-    pointer-events: none;
-  }
-
-  .eye-btn {
-    position: absolute;
-    right: 10px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    padding: 4px;
-  }
-  .eye-btn:hover { color: var(--text); }
-
-  /* ── Buttons ── */
-  .btn {
-    width: 100%;
-    padding: 13px;
-    border-radius: 8px;
-    border: none;
-    font-family: var(--sans);
-    font-size: .9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity .2s, transform .1s;
-    letter-spacing: .02em;
-  }
-  .btn:active { transform: scale(.98); }
-  .btn:disabled { opacity: .35; cursor: not-allowed; }
-
-  .btn-primary {
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    color: #000;
-  }
-  .btn-secondary {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text);
-  }
-  .btn-secondary:hover:not(:disabled) { border-color: var(--accent2); }
-
-  /* ── Log ── */
-  .log-wrap {
-    background: #10121a;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 14px;
-    max-height: 140px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .log-entry {
-    font-family: var(--mono);
-    font-size: .72rem;
-    color: var(--muted);
-    display: flex;
-    gap: 8px;
-  }
-  .log-entry .ts { color: #2e3440; flex-shrink: 0; }
-  .log-entry.ok   .msg { color: var(--accent); }
-  .log-entry.err  .msg { color: var(--error); }
-  .log-entry.warn .msg { color: var(--warn); }
-  .log-entry.info .msg { color: var(--accent2); }
-
-  /* ── Divider ── */
-  hr { border: none; border-top: 1px solid var(--border); }
-
-  /* ── Not supported banner ── */
-  #noSupport {
-    display: none;
-    background: #2a1520;
-    border: 1px solid var(--error);
-    border-radius: 8px;
-    padding: 14px;
-    font-size: .8rem;
-    color: var(--error);
-    line-height: 1.5;
-    text-align: center;
-  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);
+    min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 48px}
+  header{width:100%;max-width:440px;display:flex;align-items:center;gap:12px;margin-bottom:28px}
+  .logo{width:42px;height:42px;flex-shrink:0;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border-radius:10px;display:flex;align-items:center;justify-content:center}
+  .logo svg{width:22px;height:22px}
+  header h1{font-size:1.05rem;font-weight:700}
+  header p{font-size:.72rem;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+  .card{width:100%;max-width:440px;background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:22px;display:flex;flex-direction:column;gap:18px}
+  .status-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;
+    background:#1a1d26;border:1px solid var(--border);font-family:var(--mono);font-size:.78rem}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
+  .dot.connected{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .dot.connecting{background:var(--warn);animation:pulse 1s infinite}
+  .dot.error{background:var(--error)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  #statusText{color:var(--muted);flex:1;font-size:.75rem}
+  .label{font-size:.68rem;font-family:var(--mono);color:var(--muted);
+    letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .ssid-row{display:flex;gap:8px;align-items:stretch}
+  .ssid-row select{flex:1;min-width:0;background:#1a1d26;border:1px solid var(--border);
+    border-radius:8px;color:var(--text);font-family:var(--mono);font-size:.85rem;
+    padding:11px 12px;outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none;cursor:pointer}
+  .ssid-row select:focus{border-color:var(--accent2)}
+  .ssid-row select option{background:#1a1d26}
+  #customSsidWrap{display:none;margin-top:6px}
+  #customSsid{width:100%;background:#1a1d26;border:1px solid var(--accent2);
+    border-radius:8px;color:var(--text);font-family:var(--mono);font-size:.85rem;
+    padding:11px 12px;outline:none}
+  .btn-scan{flex-shrink:0;background:transparent;border:1px solid var(--border);border-radius:8px;
+    color:var(--accent2);font-family:var(--sans);font-weight:600;font-size:.78rem;
+    padding:0 14px;cursor:pointer;display:flex;align-items:center;gap:6px;
+    transition:border-color .2s,opacity .2s;white-space:nowrap}
+  .btn-scan:hover:not(:disabled){border-color:var(--accent2)}
+  .btn-scan:disabled{opacity:.35;cursor:not-allowed}
+  .btn-scan svg{width:15px;height:15px;flex-shrink:0}
+  .btn-scan.scanning svg{animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .hint{font-size:.7rem;color:var(--muted);font-family:var(--mono)}
+  .sbadge{display:inline-block;font-family:var(--mono);font-size:.62rem;
+    padding:1px 6px;border-radius:4px;background:#252a35;color:var(--muted);margin-left:4px}
+  .sbadge.s{color:var(--accent)} .sbadge.m{color:var(--warn)} .sbadge.w{color:var(--error)}
+  .input-wrap{position:relative;display:flex;align-items:center}
+  .input-wrap input{width:100%;background:#1a1d26;border:1px solid var(--border);
+    border-radius:8px;color:var(--text);font-family:var(--mono);font-size:.85rem;
+    padding:11px 40px 11px 12px;outline:none;transition:border-color .2s;-webkit-appearance:none}
+  .input-wrap input:focus{border-color:var(--accent2)}
+  .input-wrap input::placeholder{color:var(--muted)}
+  .eye-btn{position:absolute;right:10px;background:none;border:none;cursor:pointer;
+    color:var(--muted);display:flex;align-items:center;padding:4px}
+  .eye-btn:hover{color:var(--text)}
+  .btn{width:100%;padding:13px;border-radius:8px;border:none;font-family:var(--sans);
+    font-size:.9rem;font-weight:700;cursor:pointer;transition:opacity .2s,transform .1s;letter-spacing:.02em}
+  .btn:active{transform:scale(.98)} .btn:disabled{opacity:.3;cursor:not-allowed}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#000}
+  .btn-secondary{background:transparent;border:1px solid var(--border);color:var(--text)}
+  hr{border:none;border-top:1px solid var(--border)}
+  .log-wrap{background:#10121a;border:1px solid var(--border);border-radius:8px;
+    padding:12px 14px;max-height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+  .log-entry{font-family:var(--mono);font-size:.72rem;color:var(--muted);display:flex;gap:8px}
+  .log-entry .ts{color:#2e3440;flex-shrink:0}
+  .log-entry.ok .msg{color:var(--accent)} .log-entry.err .msg{color:var(--error)}
+  .log-entry.warn .msg{color:var(--warn)} .log-entry.info .msg{color:var(--accent2)}
+  #noSupport{display:none;background:#2a1520;border:1px solid var(--error);border-radius:8px;
+    padding:14px;font-size:.8rem;color:var(--error);line-height:1.6;text-align:center}
 </style>
 </head>
 <body>
-
 <header>
   <div class="logo">
     <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
-      <rect x="3" y="11" width="18" height="11" rx="2"/>
-      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
     </svg>
   </div>
-  <div>
-    <h1>SmartGate WiFi 設定</h1>
-    <p>透過藍芽變更裝置連線設定</p>
-  </div>
+  <div><h1>SmartGate WiFi 設定</h1><p>透過藍芽變更裝置連線設定</p></div>
 </header>
 
 <div class="card">
+  <div id="noSupport">⚠️ 此瀏覽器不支援 Web Bluetooth<br>請使用 <strong>Android Chrome</strong> 或啟用 HTTPS</div>
 
-  <!-- Not supported -->
-  <div id="noSupport">
-    ⚠️ 此瀏覽器不支援 Web Bluetooth<br>
-    請使用 <strong>Android Chrome</strong> 開啟此頁面
-  </div>
-
-  <!-- BLE status -->
   <div class="status-bar">
     <div class="dot" id="dot"></div>
     <span id="statusText">尚未連線</span>
     <button class="btn btn-secondary" id="btnConnect"
-            style="padding:5px 12px;font-size:.75rem;width:auto;border-radius:6px;">
-      連線
-    </button>
+      style="padding:5px 14px;font-size:.75rem;width:auto;border-radius:6px;">連線</button>
   </div>
 
   <hr>
 
-  <!-- SSID -->
   <div class="field">
     <div class="label">WiFi 名稱（SSID）</div>
-    <div class="input-wrap">
-      <input type="text" id="ssidInput" placeholder="輸入 WiFi 名稱" autocomplete="off" spellcheck="false">
-      <span class="badge" id="ssidBadge" style="display:none">自動偵測</span>
+    <div class="ssid-row">
+      <select id="ssidSelect" disabled>
+        <option value="">── 請先連線裝置 ──</option>
+      </select>
+      <button class="btn-scan" id="btnScan" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <path d="M21.5 2v6h-6M2.5 22v-6h6M22 12A10 10 0 0 0 3.5 7.5M2 12a10 10 0 0 0 18.5 4.5"/>
+        </svg>
+        掃描
+      </button>
     </div>
+    <div id="customSsidWrap">
+      <input type="text" id="customSsid" placeholder="輸入 WiFi 名稱" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="hint" id="ssidHint" style="display:none"></div>
   </div>
 
-  <!-- Password -->
   <div class="field">
     <div class="label">WiFi 密碼</div>
     <div class="input-wrap">
       <input type="password" id="passInput" placeholder="輸入 WiFi 密碼" autocomplete="off">
-      <button class="eye-btn" id="eyeBtn" type="button" aria-label="顯示密碼">
-        <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+      <button class="eye-btn" id="eyeBtn" type="button">
+        <svg id="eyeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
         </svg>
       </button>
     </div>
   </div>
 
-  <!-- Send button -->
-  <button class="btn btn-primary" id="btnSend" disabled>
-    套用並重啟裝置
-  </button>
-
+  <button class="btn btn-primary" id="btnSend" disabled>套用並重啟裝置</button>
   <hr>
-
-  <!-- Log -->
   <div>
     <div class="label" style="margin-bottom:8px">操作記錄</div>
     <div class="log-wrap" id="logWrap">
-      <div class="log-entry info">
-        <span class="ts">--:--:--</span>
-        <span class="msg">等待連線...</span>
-      </div>
+      <div class="log-entry info"><span class="ts">--:--:--</span><span class="msg">等待連線...</span></div>
     </div>
   </div>
-
 </div>
 
 <script>
-// ── UUIDs（與 firmware 一致）
 const SVC_UUID    = '12345678-1234-5678-1234-56789abcdef0';
 const SSID_UUID   = '12345678-1234-5678-1234-56789abcdef1';
 const PASS_UUID   = '12345678-1234-5678-1234-56789abcdef2';
 const CMD_UUID    = '12345678-1234-5678-1234-56789abcdef3';
 const STATUS_UUID = '12345678-1234-5678-1234-56789abcdef4';
+const SCAN_UUID   = '12345678-1234-5678-1234-56789abcdef5';
 
-let device, server, chars = {};
-let connected = false;
+let device, server, chars={}, connected=false, scanResults=[], currentSsid='';
+const $=id=>document.getElementById(id);
+const dot=$('dot'), statusText=$('statusText'), btnConnect=$('btnConnect'),
+      btnScan=$('btnScan'), btnSend=$('btnSend'), ssidSelect=$('ssidSelect'),
+      customSsid=$('customSsid'), customWrap=$('customSsidWrap'),
+      passInput=$('passInput'), logWrap=$('logWrap'), ssidHint=$('ssidHint');
 
-const $ = id => document.getElementById(id);
-const dot        = $('dot');
-const statusText = $('statusText');
-const btnConnect = $('btnConnect');
-const btnSend    = $('btnSend');
-const ssidInput  = $('ssidInput');
-const passInput  = $('passInput');
-const logWrap    = $('logWrap');
+if(!navigator.bluetooth) $('noSupport').style.display='block';
 
-// ── Check Web Bluetooth support
-if (!navigator.bluetooth) {
-  $('noSupport').style.display = 'block';
-  btnConnect.disabled = true;
+function log(msg,type=''){
+  const ts=new Date().toTimeString().slice(0,8);
+  const el=document.createElement('div');
+  el.className=`log-entry ${type}`;
+  el.innerHTML=`<span class="ts">${ts}</span><span class="msg">${msg}</span>`;
+  logWrap.appendChild(el); logWrap.scrollTop=logWrap.scrollHeight;
 }
+function sigCls(r){return r>=-60?'s':r>=-75?'m':'w'}
+function sigBar(r){return r>=-60?'▂▄▆█':r>=-75?'▂▄▆·':'▂▄··'}
 
-// ── Logging
-function log(msg, type = '') {
-  const now = new Date();
-  const ts  = now.toTimeString().slice(0,8);
-  const el  = document.createElement('div');
-  el.className = `log-entry ${type}`;
-  el.innerHTML = `<span class="ts">${ts}</span><span class="msg">${msg}</span>`;
-  logWrap.appendChild(el);
-  logWrap.scrollTop = logWrap.scrollHeight;
-}
-
-// ── Try to auto-detect current SSID (Android Chrome Network Information)
-async function tryDetectSSID() {
-  // Network Information API — 只能得到連線類型，無法直接取 SSID
-  // 嘗試用 navigator.connection 判斷是否在 WiFi 上
-  // SSID 直接取得需要 Android Native API，瀏覽器無法取得密碼
-  if (navigator.connection) {
-    const conn = navigator.connection;
-    if (conn.type === 'wifi') {
-      log('偵測到 WiFi 連線，請確認並輸入密碼', 'info');
-    }
+function buildDropdown(){
+  ssidSelect.innerHTML='';
+  // 若目前裝置 SSID 不在掃描結果中，仍放在頂部
+  if(currentSsid && !scanResults.find(r=>r.ssid===currentSsid)){
+    const o=document.createElement('option');
+    o.value=currentSsid; o.textContent=`${currentSsid}（目前設定）`; o.selected=true;
+    ssidSelect.appendChild(o);
   }
-  // 若裝置先前連過，嘗試從 BLE SSID characteristic 讀取目前裝置設定
+  scanResults.forEach(({ssid,rssi})=>{
+    const o=document.createElement('option');
+    o.value=ssid;
+    o.textContent=`${ssid}   ${sigBar(rssi)} ${rssi}dBm`;
+    if(ssid===currentSsid) o.selected=true;
+    ssidSelect.appendChild(o);
+  });
+  const m=document.createElement('option'); m.value='__manual__'; m.textContent='── 手動輸入 ──';
+  ssidSelect.appendChild(m);
+  ssidSelect.disabled=false;
+  onSsidChange();
 }
+function onSsidChange(){
+  const v=ssidSelect.value;
+  customWrap.style.display=v==='__manual__'?'block':'none';
+  if(v==='__manual__'){ssidHint.style.display='none'; customSsid.focus(); return;}
+  const r=scanResults.find(x=>x.ssid===v);
+  if(r){
+    const c=sigCls(r.rssi);
+    ssidHint.style.display='block';
+    ssidHint.innerHTML=`訊號強度：<span class="sbadge ${c}">${r.rssi} dBm　${sigBar(r.rssi)}</span>`;
+  } else {ssidHint.style.display='none';}
+}
+ssidSelect.addEventListener('change',onSsidChange);
 
-// ── Set status
-function setStatus(state, text) {
-  dot.className = `dot ${state}`;
-  statusText.textContent = text;
-}
+function getSSID(){return ssidSelect.value==='__manual__'?customSsid.value.trim():ssidSelect.value;}
+function setStatus(s,t){dot.className=`dot ${s}`;statusText.textContent=t;}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 // ── Connect
-btnConnect.addEventListener('click', async () => {
-  if (connected) {
-    disconnect();
-    return;
-  }
-  try {
-    setStatus('connecting', '掃描中...');
-    log('開始掃描 SmartGate 裝置...', 'info');
-    btnConnect.disabled = true;
-
-    device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'SG-' }],
-      optionalServices: [SVC_UUID]
+btnConnect.addEventListener('click',async()=>{
+  if(connected){disconnect();return;}
+  if(!navigator.bluetooth)return;
+  try{
+    setStatus('connecting','掃描中...');
+    btnConnect.disabled=true;
+    log('開始掃描 SmartGate 裝置...','info');
+    device=await navigator.bluetooth.requestDevice({
+      filters:[{namePrefix:'SG-'}], optionalServices:[SVC_UUID]
     });
+    device.addEventListener('gattserverdisconnected',onDisconnected);
+    setStatus('connecting',`連線中 ${device.name}...`);
+    log(`找到：${device.name}，連線中...`,'info');
+    server=await device.gatt.connect();
+    const svc=await server.getPrimaryService(SVC_UUID);
+    chars.ssid  =await svc.getCharacteristic(SSID_UUID);
+    chars.pass  =await svc.getCharacteristic(PASS_UUID);
+    chars.cmd   =await svc.getCharacteristic(CMD_UUID);
+    chars.status=await svc.getCharacteristic(STATUS_UUID);
+    chars.scan  =await svc.getCharacteristic(SCAN_UUID);
 
-    device.addEventListener('gattserverdisconnected', onDisconnected);
+    // 讀裝置目前 SSID
+    try{
+      const v=await chars.ssid.readValue();
+      currentSsid=new TextDecoder().decode(v).trim();
+      if(currentSsid) log(`裝置目前 SSID：${currentSsid}`,'ok');
+    }catch(e){}
 
-    log(`找到裝置：${device.name}，連線中...`, 'info');
-    setStatus('connecting', `連線中 ${device.name}...`);
-
-    server = await device.gatt.connect();
-    const svc = await server.getPrimaryService(SVC_UUID);
-
-    chars.ssid   = await svc.getCharacteristic(SSID_UUID);
-    chars.pass   = await svc.getCharacteristic(PASS_UUID);
-    chars.cmd    = await svc.getCharacteristic(CMD_UUID);
-    chars.status = await svc.getCharacteristic(STATUS_UUID);
-
-    // 讀取裝置目前儲存的 SSID 並自動填入
-    try {
-      const val = await chars.ssid.readValue();
-      const currentSsid = new TextDecoder().decode(val);
-      if (currentSsid && currentSsid.length > 0) {
-        ssidInput.value = currentSsid;
-        $('ssidBadge').style.display = 'inline';
-        log(`裝置目前 SSID：${currentSsid}（已自動填入）`, 'ok');
-      }
-    } catch(e) { /* 讀取失敗不影響流程 */ }
-
-    // 訂閱 Status Notify
+    // Status notify
     await chars.status.startNotifications();
-    chars.status.addEventListener('characteristicvaluechanged', e => {
-      const msg = new TextDecoder().decode(e.target.value);
-      if (msg === 'APPLYING') {
-        log('裝置儲存設定中，即將重啟...', 'warn');
-        btnSend.disabled = true;
-      } else if (msg.startsWith('ERROR')) {
-        log(`裝置回報錯誤：${msg}`, 'err');
-      } else {
-        log(`裝置回報：${msg}`, 'ok');
+    chars.status.addEventListener('characteristicvaluechanged',e=>{
+      const msg=new TextDecoder().decode(e.target.value);
+      if(msg==='APPLYING'){log('裝置儲存設定中，即將重啟...','warn');btnSend.disabled=true;}
+      else if(msg.startsWith('ERROR')){log(`裝置錯誤：${msg}`,'err');}
+    });
+
+    // Scan notify — 接收 WiFi 掃描結果
+    await chars.scan.startNotifications();
+    chars.scan.addEventListener('characteristicvaluechanged',e=>{
+      const raw=new TextDecoder().decode(e.target.value).trim();
+      if(raw.startsWith('SCAN_DONE:')){
+        const cnt=parseInt(raw.split(':')[1])||0;
+        log(`掃描完成，找到 ${cnt} 個網路`,'ok');
+        setScanBusy(false);
+        buildDropdown();
+      } else if(raw!=='IDLE'){
+        // 格式："SSID|RSSI"
+        const p=raw.split('|');
+        if(p.length===2){
+          const ssid=p[0], rssi=parseInt(p[1]);
+          if(ssid&&!scanResults.find(r=>r.ssid===ssid)) scanResults.push({ssid,rssi});
+        }
       }
     });
 
-    connected = true;
-    setStatus('connected', `已連線：${device.name}`);
-    btnConnect.textContent = '斷線';
-    btnConnect.disabled = false;
-    btnSend.disabled = false;
-    log('BLE 連線成功！請輸入新的 WiFi 設定', 'ok');
-
-    await tryDetectSSID();
-
-  } catch(err) {
-    setStatus('error', '連線失敗');
-    log(`錯誤：${err.message}`, 'err');
-    btnConnect.disabled = false;
+    connected=true;
+    setStatus('connected',`已連線：${device.name}`);
+    btnConnect.textContent='斷線'; btnConnect.disabled=false;
+    btnSend.disabled=false; btnScan.disabled=false;
+    log('連線成功！正在自動掃描附近 WiFi...','ok');
+    // 自動觸發掃描
+    await doScan();
+  }catch(err){
+    setStatus('error','連線失敗');
+    log(`錯誤：${err.message}`,'err');
+    btnConnect.disabled=false;
   }
 });
 
-// ── Disconnect
-function onDisconnected() {
-  connected = false;
-  setStatus('', '已斷線');
-  btnConnect.textContent = '連線';
-  btnSend.disabled = true;
-  $('ssidBadge').style.display = 'none';
-  log('BLE 連線已中斷', 'warn');
+async function doScan(){
+  if(!connected||!chars.cmd)return;
+  scanResults=[];
+  setScanBusy(true);
+  ssidSelect.innerHTML='<option value="">掃描中...</option>';
+  ssidSelect.disabled=true;
+  ssidHint.style.display='none';
+  customWrap.style.display='none';
+  log('請求裝置掃描附近 WiFi...','info');
+  try{await chars.cmd.writeValue(new TextEncoder().encode('scan'));}
+  catch(e){log(`掃描請求失敗：${e.message}`,'err');setScanBusy(false);}
+}
+btnScan.addEventListener('click',doScan);
+
+function setScanBusy(b){
+  btnScan.disabled=b; btnScan.classList.toggle('scanning',b);
+  btnScan.lastChild.textContent=b?' 掃描中':' 掃描';
 }
 
-function disconnect() {
-  if (device && device.gatt.connected) device.gatt.disconnect();
-}
-
-// ── Send
-btnSend.addEventListener('click', async () => {
-  const ssid = ssidInput.value.trim();
-  const pass = passInput.value;
-
-  if (!ssid) { log('請輸入 WiFi 名稱', 'err'); return; }
-  if (!connected) { log('請先連線至裝置', 'err'); return; }
-
-  try {
-    btnSend.disabled = true;
-    const enc = new TextEncoder();
-
-    log(`傳送 SSID：${ssid}`, 'info');
-    await chars.ssid.writeValue(enc.encode(ssid));
-    await sleep(300);
-
-    log('傳送密碼...', 'info');
-    await chars.pass.writeValue(enc.encode(pass));
-    await sleep(300);
-
-    log('傳送 apply 指令...', 'info');
+// ── Apply
+btnSend.addEventListener('click',async()=>{
+  const ssid=getSSID(), pass=passInput.value;
+  if(!ssid){log('請選擇或輸入 WiFi 名稱','err');return;}
+  if(!connected){log('請先連線至裝置','err');return;}
+  try{
+    btnSend.disabled=true;
+    const enc=new TextEncoder();
+    log(`傳送 SSID：${ssid}`,'info');
+    await chars.ssid.writeValue(enc.encode(ssid)); await sleep(300);
+    log('傳送密碼...','info');
+    await chars.pass.writeValue(enc.encode(pass)); await sleep(300);
+    log('傳送 apply 指令...','info');
     await chars.cmd.writeValue(enc.encode('apply'));
-    log('指令已送出，等待裝置回應...', 'ok');
-
-  } catch(err) {
-    log(`傳送失敗：${err.message}`, 'err');
-    btnSend.disabled = false;
-  }
+    log('已送出！裝置重啟後將連上新 WiFi','ok');
+  }catch(err){log(`傳送失敗：${err.message}`,'err');btnSend.disabled=false;}
 });
 
-// ── Eye toggle
-$('eyeBtn').addEventListener('click', () => {
-  const isPass = passInput.type === 'password';
-  passInput.type = isPass ? 'text' : 'password';
-  $('eyeIcon').innerHTML = isPass
-    ? `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-       <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-       <line x1="1" y1="1" x2="23" y2="23"/>`
-    : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-       <circle cx="12" cy="12" r="3"/>`;
-});
+function onDisconnected(){
+  connected=false; setStatus('','已斷線');
+  btnConnect.textContent='連線'; btnConnect.disabled=false;
+  btnSend.disabled=true; btnScan.disabled=true;
+  ssidSelect.innerHTML='<option value="">── 請先連線裝置 ──</option>';
+  ssidSelect.disabled=true; customWrap.style.display='none'; ssidHint.style.display='none';
+  setScanBusy(false);
+  log('BLE 連線已中斷','warn');
+}
+function disconnect(){if(device&&device.gatt.connected)device.gatt.disconnect();}
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+// Eye toggle
+$('eyeBtn').addEventListener('click',()=>{
+  const p=passInput.type==='password';
+  passInput.type=p?'text':'password';
+  $('eyeIcon').innerHTML=p
+    ?`<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>`
+    :`<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+});
 </script>
 </body>
 </html>
