@@ -1868,6 +1868,7 @@
             const sc = old.scale.clone();
             const shape = oldData.shape || 'box';
             const width = oldData.width || 14;
+            const depth = oldData.depth || null;
             const prompt = `${newFloors} 樓 (${shape})`;
             
             deleteBuildingAnnotations(old);
@@ -1882,13 +1883,14 @@
             const wallColor = $('wallColor').value;
             const glassColor = $('glassColor').value;
             
-            const group = createBuilding(newFloors, newBasements, width, wallColor, glassColor, false, shape);
+            const group = createBuilding(newFloors, newBasements, width, wallColor, glassColor, false, shape, depth);
             const id = nextBuildingId++;
             group.userData.buildingId = id;
             group.userData.isAddition = true;
             group.userData.floors = newFloors;
             group.userData.basements = newBasements;
             group.userData.width = width;
+            group.userData.depth = depth;
             group.userData.shape = shape;
             group.userData.prompt = prompt;
             group.position.copy(pos);
@@ -2303,6 +2305,7 @@
                 group.userData.floors = ad.floors || 3;
                 group.userData.basements = ad.basements || 0;
                 group.userData.width = ad.width || 11;
+                group.userData.depth = ad.depth || null;
                 group.userData.shape = shape;
                 group.userData.prompt = prompt;
                 group.position.set(ad.position[0], 0, ad.position[2]);
@@ -2620,6 +2623,47 @@
         });
 
         renderer.domElement.addEventListener('mouseleave', () => {
+            if (isDragging) endDrag();
+        });
+
+        // 手機觸控：移動模式的拖曳邏輯 (對應上面的滑鼠邏輯)
+        function getTouchPoint(e) {
+            const t = e.touches[0] || e.changedTouches[0];
+            return t ? { clientX: t.clientX, clientY: t.clientY } : null;
+        }
+
+        renderer.domElement.addEventListener('touchstart', (e) => {
+            if (!moveMode) return;
+            if (e.touches.length !== 1) return;
+            const pt = getTouchPoint(e);
+            if (!pt) return;
+            const building = getBuildingFromRaycast(pt);
+            if (building) {
+                e.preventDefault();
+                startDrag(pt, building);
+                return;
+            }
+            if (isDragging) endDrag();
+        }, { passive: false });
+
+        renderer.domElement.addEventListener('touchmove', (e) => {
+            if (moveMode && isDragging) {
+                const pt = getTouchPoint(e);
+                if (pt) {
+                    e.preventDefault();
+                    updateDrag(pt);
+                }
+            }
+        }, { passive: false });
+
+        renderer.domElement.addEventListener('touchend', (e) => {
+            if (moveMode && isDragging) {
+                e.preventDefault();
+                endDrag();
+            }
+        }, { passive: false });
+
+        renderer.domElement.addEventListener('touchcancel', () => {
             if (isDragging) endDrag();
         });
 
