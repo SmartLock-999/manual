@@ -360,22 +360,7 @@
             transform: translateY(0);
         }
         .legend {
-            position: absolute;
-            right: 18px;
-            bottom: 18px;
-            z-index: 3;
-            background: #ffffffdd;
-            backdrop-filter: blur(8px);
-            padding: 10px 12px;
-            border-radius: 9px;
-            box-shadow: var(--shadow);
-            font-size: 11px;
-            color: var(--muted);
-        }
-        .legend b {
-            color: var(--ink);
-            display: block;
-            margin-bottom: 3px;
+            display: none; /* 隐藏右下角提示框 */
         }
         .status-bar {
             font-size: 11px;
@@ -611,7 +596,7 @@
             </header>
             <div id="canvas" class="canvas-wrap"></div>
             <div id="mode" class="mode">點擊建築表面以放置標示</div>
-            <div class="legend"><b>互動說明</b>左鍵旋轉 · 中鍵平移 · 滾輪縮放<br>雙擊切換左鍵平移/旋轉<br><span style="color:#3b67f2;">✦ 萬向檢視</span></div>
+            <!-- 右下 legend 已移除 -->
         </section>
     </main>
 
@@ -772,7 +757,6 @@
             const wallColorHex = hex(wallColor || '#e5e1d8');
             const glassColorHex = hex(glassColor || '#557c9c');
 
-            // 固定風格：現代
             const wallMat = new THREE.MeshStandardMaterial({ color: wallColorHex, roughness: 0.5, metalness: 0.2 });
             const glassMat = new THREE.MeshStandardMaterial({ color: glassColorHex, roughness: 0.1, metalness: 0.6, transparent: true, opacity: 0.7 });
             const trimMat = new THREE.MeshStandardMaterial({ color: '#b0b8c0', roughness: 0.4 });
@@ -814,7 +798,6 @@
                     bMesh.userData.isBasement = true;
                 }
 
-                // 每層的地板
                 const floorY = (f + 1) * h - 0.18;
                 if (isCylinder) {
                     mesh(new THREE.CylinderGeometry(w/2 - 0.12, w/2 - 0.12, 0.18, 24), floorMat, 0, floorY, 0, group);
@@ -822,7 +805,6 @@
                     mesh(new THREE.BoxGeometry(w - 0.25, 0.18, d - 0.25), floorMat, 0, floorY, 0, group);
                 }
 
-                // 地下室最底層的地板（額外加強）
                 if (f === -basements && basements > 0) {
                     const bottomY = -basements * h + 0.18;
                     if (isCylinder) {
@@ -854,7 +836,6 @@
                 }
             }
 
-            // 如果地下室大於0，確保最底層有地板
             if (basements > 0) {
                 const bottomY = -basements * h + 0.18;
                 if (isCylinder) {
@@ -866,7 +847,6 @@
 
             const top = floors * h;
             if (floors > 0) {
-                // 固定為平屋頂
                 if (isCylinder) {
                     mesh(new THREE.CylinderGeometry(w/2 + 0.5, w/2 + 0.5, 1, 24), trimMat, 0, top + 0.45, 0, group);
                     for (let i = 0; i < 4; i++) {
@@ -947,7 +927,6 @@
             $('perspectiveBtn').textContent = `透視樓板：${xrayMode?'開':'關'}`;
             $('analysisStatus').textContent = onlyBasement ? '只顯示地下室層 (地上樓層與地板隱藏)' : '顯示完整建築';
             
-            // 強制更新：只完整顯示地下層(含地板)，隱藏所有地上樓層與地板
             [mainBuilding, additionsGroup].forEach(group => {
                 group.traverse(o => {
                     if (!o.isMesh) return;
@@ -955,21 +934,18 @@
                     const isBasement = o.userData.isBasement || false;
                     
                     if (onlyBasement) {
-                        // 只顯示地下室：非地下室 (包含地板與地上樓層) 全部隱藏
                         if (!isBasement) {
                             o.material.transparent = true;
                             o.material.opacity = 0.0;
                             o.material.depthWrite = false;
                             o.material.needsUpdate = true;
                         } else {
-                            // 地下室完整顯示
                             o.material.transparent = false;
                             o.material.opacity = 1;
                             o.material.depthWrite = true;
                             o.material.needsUpdate = true;
                         }
                     } else {
-                        // 正常模式
                         if (isBasement) {
                             o.material.transparent = true;
                             o.material.opacity = 0.5;
@@ -1432,14 +1408,12 @@
                 `已選取 ${selectedForLink.length} 個標註點`;
         }
 
-        // 刪除多個選取的標註
         function deleteSelectedAnnotations() {
             if (selectedForLink.length === 0) return;
             const count = selectedForLink.length;
             const names = selectedForLink.map(i => annotations[i]?.text || '未命名').join('、');
             if (!confirm(`確定要刪除選取的 ${count} 個標註嗎？\n${names}\n(相關連線也會一併移除)`)) return;
 
-            // 從後往前刪除
             const sorted = [...selectedForLink].sort((a, b) => b - a);
             sorted.forEach(idx => {
                 deleteAnnotation(idx);
@@ -1629,14 +1603,12 @@
                     const isBasement = o.userData.isBasement || false;
                     
                     if (onlyBasement) {
-                        // 只顯示地下室：非地下室 (包含地板與地上樓層) 全部隱藏
                         if (!isBasement) {
                             o.material.transparent = true;
                             o.material.opacity = 0.0;
                             o.material.depthWrite = false;
                             o.material.needsUpdate = true;
                         } else {
-                            // 地下室完整顯示 (含地板)
                             o.material.transparent = false;
                             o.material.opacity = 1;
                             o.material.depthWrite = true;
@@ -1680,7 +1652,7 @@
                     exposure: .72 }
             } [style];
             scene.background = new THREE.Color(themes.bg);
-            scene.fog.color.set(themes.fog);
+            scene.fog.color.set(themes.fg);
             ground.material.color.set(themes.ground);
             hemi.intensity = themes.hemi;
             sun.intensity = themes.sun;
@@ -2275,7 +2247,6 @@
         }
 
         function loadProjectData(data) {
-            // 清空現有狀態
             annotations = [];
             annotationObjects = [];
             relations = [];
@@ -2291,7 +2262,6 @@
             nextBuildingId = data.nextBuildingId || 1;
             nextRelationId = data.nextRelationId || 1;
             
-            // 還原設定
             Object.entries(data.settings || {}).forEach(([id, v]) => { if ($(id)) $(id).value = v; });
             if (data.lineColor) $('lineColor').value = data.lineColor;
             if (data.lineWidth) $('lineWidth').value = data.lineWidth;
@@ -2299,7 +2269,6 @@
             xrayMode = !!data.xrayMode;
             onlyBasement = !!data.onlyBasement;
 
-            // 還原主建築
             while (mainBuilding.children.length > 0) mainBuilding.remove(mainBuilding.children[0]);
             if (data.mainBuildingData && data.mainBuildingData.floors > 0) {
                 const md = data.mainBuildingData;
@@ -2321,7 +2290,6 @@
                 if (data.mainBuildingScale) mainBuilding.scale.set(...data.mainBuildingScale);
             }
 
-            // 還原新增建築
             (data.additionsData || []).forEach(ad => {
                 const prompt = ad.prompt || `${ad.floors||3} 樓建物`;
                 const shape = ad.shape || 'box';
@@ -2344,7 +2312,6 @@
                 additionPrompts.push(prompt);
             });
 
-            // 還原標註
             (data.annotations || []).forEach(a => {
                 const parent = findBuildingById(a.buildingId) || mainBuilding;
                 const el = document.createElement('div');
@@ -2364,7 +2331,6 @@
                 attachAnnotationInteraction(el, index);
             });
 
-            // 還原關係
             (data.relations || []).forEach(r => {
                 if (annotations[r.from] && annotations[r.to]) {
                     const color = new THREE.Color($('lineColor').value || '#ff8b36');
@@ -2407,7 +2373,6 @@
         function newProject() {
             if (!confirm('確定要開啟新檔嗎？目前編輯的內容將會遺失。')) return;
             localStorage.removeItem(STORAGE_KEY);
-            // 重置所有狀態
             annotations = [];
             annotationObjects = [];
             relations = [];
@@ -2433,7 +2398,6 @@
             mainBuilding.position.set(0, 0, 0);
             mainBuilding.scale.set(1, 1, 1);
             
-            // 重置設定
             $('floors').value = 5;
             $('basements').value = 0;
             $('width').value = 14;
@@ -2566,8 +2530,6 @@
             controls.target.set(0, 13, 0);
             controls.update(); };
         $('gridBtn').onclick = () => grid.visible = !grid.visible;
-
-        // 新專案按鈕
         $('newProjectBtn').onclick = newProject;
 
         // === SIDEBAR COLLAPSE ===
@@ -2592,6 +2554,41 @@
             updateScale(e.target.value);
         });
 
+        // 點擊建築自動聚焦 (不須切換選取模式)
+        renderer.domElement.addEventListener('click', (e) => {
+            // 如果正在拖曳或處於特定模式則跳過
+            if (isDragging) return;
+            if (annotationMode || footprintMode || relationMode || multiLinkMode || lineSelectMode) return;
+
+            const r = renderer.domElement.getBoundingClientRect();
+            pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+            pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+
+            const targets = [];
+            mainBuilding.traverse(o => { if (o.isMesh) targets.push(o); });
+            additionsGroup.traverse(o => { if (o.isMesh) targets.push(o); });
+
+            const hit = raycaster.intersectObjects(targets, false)[0];
+            if (hit) {
+                let g = hit.object;
+                while (g.parent && g.parent !== mainBuilding && g.parent !== additionsGroup) {
+                    g = g.parent;
+                }
+                let building = null;
+                if (g.parent === mainBuilding) building = mainBuilding;
+                else if (g.parent === additionsGroup) building = g;
+                if (building) {
+                    // 自動選取並聚焦
+                    selectBuildings([building]);
+                    return;
+                }
+            }
+            // 點到空白處取消選取
+            if (!e.shiftKey) selectBuildings([]);
+        });
+
+        // 保留移動模式的拖曳邏輯
         renderer.domElement.addEventListener('mousedown', (e) => {
             if (moveMode) {
                 const building = getBuildingFromRaycast(e);
@@ -2626,66 +2623,15 @@
             if (isDragging) endDrag();
         });
 
+        // 框選模式仍保留
         renderer.domElement.addEventListener('click', (e) => {
             if (isDragging) return;
-
-            if (lineSelectMode) {
-                const r = renderer.domElement.getBoundingClientRect();
-                pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
-                pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
-                raycaster.setFromCamera(pointer, camera);
-
-                const targets = [];
-                relationGroup.traverse(o => { if (o.isMesh || o.isLine) targets.push(o); });
-
-                const hit = raycaster.intersectObjects(targets, false)[0];
-                if (hit) {
-                    let g = hit.object;
-                    while (g.parent && g.parent !== relationGroup) g = g.parent;
-                    if (g.parent === relationGroup && g.userData.relationId != null) {
-                        toggleRelationSelection(g.userData.relationId, g);
-                    }
-                }
-                return;
-            }
-
-            if (annotationMode) {
-                const r = renderer.domElement.getBoundingClientRect();
-                pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
-                pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
-                raycaster.setFromCamera(pointer, camera);
-
-                const targets = [];
-                mainBuilding.traverse(o => { if (o.isMesh) targets.push(o); });
-                additionsGroup.traverse(o => { if (o.isMesh) targets.push(o); });
-
-                const hit = raycaster.intersectObjects(targets, false).find(h => h.object.isMesh);
-                if (hit) {
-                    const depth = +$('annotationDepth').value / 100;
-                    const center = hit.object.getWorldPosition(new THREE.Vector3());
-                    const insidePoint = hit.point.clone().lerp(center, depth);
-                    const text = prompt('輸入標示文字', '入口');
-                    if (text !== null && text.trim() !== '') {
-                        const parentGroup = getBuildingGroupFromHit(hit);
-                        addAnnotation(insidePoint, text.trim(), $('annotationIcon').value, $('annotationColor')
-                            .value, parentGroup);
-                    }
-                } else {
-                    $('mode').textContent = '請點擊建築表面';
-                    $('mode').classList.add('show');
-                    setTimeout(() => {
-                        if (annotationMode) $('mode').textContent = '點擊建築表面放置標示';
-                    }, 1200);
-                }
-                return;
-            }
-
             if (footprintMode) {
                 const p = groundPoint(e);
                 if (p) drawFootprint(p);
                 return;
             }
-
+            // 其他模式維持原有行為，但排除selectionMode（因為已經用點擊聚焦取代）
             if (selectionMode) {
                 const r = renderer.domElement.getBoundingClientRect();
                 pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
@@ -2753,7 +2699,6 @@
                         updateFileName(base);
                     }
                     loadProjectData(data);
-                    // 儲存到自動儲存
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
                     $('analysisStatus').textContent = '已載入專案設定、標示與建物。';
                 } catch (e) { alert('無效的 JSON 檔案。');
@@ -2798,7 +2743,6 @@
         generateMain();
         animate();
 
-        // 嘗試載入自動儲存
         const hasAutoSave = loadAutoSave();
         if (!hasAutoSave) {
             updateFileName('3D 建築視圖');
@@ -2817,10 +2761,9 @@
         document.querySelector('[data-target="buildingConfig"]')?.classList.add('open');
         document.getElementById('buildingConfig')?.classList.add('open');
 
-        // 關閉前自動儲存
         window.addEventListener('beforeunload', () => { autoSave(); });
 
-        console.log('Forma 已啟動，版本 5.0 — 自動儲存、開啟新檔');
+        console.log('Forma 已啟動，版本 6.0 — 自動聚焦點擊建築，無右下提示框');
     </script>
 </body>
 </html>
