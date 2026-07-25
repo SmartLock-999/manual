@@ -589,9 +589,9 @@
             <header class="topbar">
                 <div class="title-block"><strong id="projectFileName">3D 建築視圖</strong><span>拖曳旋轉 · 滾輪縮放</span></div>
                 <div class="tools">
-                    <button id="homeBtn">重設視角</button>
-                    <button id="gridBtn">格線</button>
-                    <button id="panToggleBtn" class="secondary" style="background:#ff8b36;color:#fff;">平移模式</button>
+                    <button id="topMoveBtn">↕ 移動</button>
+                    <button id="topAnnotationBtn">＋ 標示</button>
+                    <button id="topDeleteBtn">🗑 刪除</button>
                 </div>
             </header>
             <div id="canvas" class="canvas-wrap"></div>
@@ -645,26 +645,20 @@
         controls.update();
 
         let leftButtonMode = 'rotate';
-        const panToggleBtn = $('panToggleBtn');
 
         function toggleLeftButtonMode() {
             if (leftButtonMode === 'rotate') {
                 leftButtonMode = 'pan';
                 controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
-                panToggleBtn.textContent = '旋轉模式';
-                panToggleBtn.style.background = '#3b67f2';
                 $('analysisStatus').textContent = '左鍵平移模式 (雙擊切換)';
             } else {
                 leftButtonMode = 'rotate';
                 controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
-                panToggleBtn.textContent = '平移模式';
-                panToggleBtn.style.background = '#ff8b36';
                 $('analysisStatus').textContent = '左鍵旋轉模式 (雙擊切換)';
             }
             controls.update();
         }
         renderer.domElement.addEventListener('dblclick', toggleLeftButtonMode);
-        panToggleBtn.onclick = toggleLeftButtonMode;
 
         const hemi = new THREE.HemisphereLight('#e9f4ff', '#7d8b92', 2.1);
         scene.add(hemi);
@@ -712,6 +706,7 @@
             relationMode = false,
             multiLinkMode = false,
             moveMode = false,
+            deleteMode = false,
             lineSelectMode = false,
             selectedBuildings = [],
             footprintStart = null,
@@ -2005,12 +2000,14 @@
 
         function clearModes() {
             annotationMode = selectionMode = footprintMode = relationMode = multiLinkMode = moveMode =
-                lineSelectMode = false;
+                lineSelectMode = deleteMode = false;
             footprintStart = null;
             if (footprintPreview) { scene.remove(footprintPreview);
                 footprintPreview = null; }
-            ['annotationBtn', 'selectBtn', 'footprintBtn', 'relationBtn', 'multiLinkBtn', 'moveBtn', 'lineSelectBtn'].forEach(
-                id => $(id).classList.remove('active', 'primary'));
+            ['annotationBtn', 'selectBtn', 'footprintBtn', 'relationBtn', 'multiLinkBtn', 'moveBtn', 'lineSelectBtn',
+                'topMoveBtn', 'topAnnotationBtn', 'topDeleteBtn'
+            ].forEach(
+                id => $(id).classList.remove('active', 'primary', 'active-tool'));
             $('mode').classList.remove('show');
             renderer.domElement.style.cursor = 'grab';
             if (!multiLinkMode) {
@@ -2424,15 +2421,18 @@
         $('generateBtn').onclick = addNewBuilding;
         $('showOnlyBasementBtn').onclick = showOnlyBasement;
 
-        $('annotationBtn').onclick = () => {
+        function toggleAnnotationMode() {
             const next = !annotationMode;
             clearModes();
             annotationMode = next;
             $('annotationBtn').classList.toggle('active', next);
+            $('topAnnotationBtn').classList.toggle('active-tool', next);
             $('mode').textContent = '點擊建築表面放置標示';
             $('mode').classList.toggle('show', next);
             renderer.domElement.style.cursor = next ? 'crosshair' : 'grab';
-        };
+        }
+        $('annotationBtn').onclick = toggleAnnotationMode;
+        $('topAnnotationBtn').onclick = toggleAnnotationMode;
         $('perspectiveBtn').onclick = () => { xrayMode = !xrayMode;
             updateXray();
             autoSave(); };
@@ -2455,15 +2455,28 @@
             $('mode').textContent = '點擊建物以選取 (Shift 多選)';
             $('mode').classList.toggle('show', next);
         };
-        $('moveBtn').onclick = () => {
+        function toggleMoveMode() {
             const next = !moveMode;
             clearModes();
             moveMode = next;
             $('moveBtn').classList.toggle('active', next);
+            $('topMoveBtn').classList.toggle('active-tool', next);
             $('mode').textContent = next ? '點擊建物拖曳移動 (僅限地面)' : '';
             $('mode').classList.toggle('show', next);
             renderer.domElement.style.cursor = next ? 'grab' : 'grab';
             if (!next) endDrag();
+        }
+        $('moveBtn').onclick = toggleMoveMode;
+        $('topMoveBtn').onclick = toggleMoveMode;
+
+        $('topDeleteBtn').onclick = () => {
+            const next = !deleteMode;
+            clearModes();
+            deleteMode = next;
+            $('topDeleteBtn').classList.toggle('active-tool', next);
+            $('mode').textContent = next ? '點擊建物即可刪除' : '';
+            $('mode').classList.toggle('show', next);
+            renderer.domElement.style.cursor = next ? 'crosshair' : 'grab';
         };
         $('relationBtn').onclick = () => {
             if (annotations.length < 2) { alert('需要至少兩個標註點。'); return; }
@@ -2529,10 +2542,6 @@
         };
         $('lineColor').onchange = () => { rebuildRelations();
             autoSave(); };
-        $('homeBtn').onclick = () => { camera.position.set(42, 31, 46);
-            controls.target.set(0, 13, 0);
-            controls.update(); };
-        $('gridBtn').onclick = () => grid.visible = !grid.visible;
         $('newProjectBtn').onclick = newProject;
 
         // === SIDEBAR COLLAPSE ===
@@ -2561,7 +2570,7 @@
         renderer.domElement.addEventListener('click', (e) => {
             // 如果正在拖曳或處於特定模式則跳過
             if (isDragging) return;
-            if (annotationMode || footprintMode || relationMode || multiLinkMode || lineSelectMode) return;
+            if (annotationMode || footprintMode || relationMode || multiLinkMode || lineSelectMode || deleteMode) return;
 
             const r = renderer.domElement.getBoundingClientRect();
             pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
@@ -2673,6 +2682,37 @@
             if (footprintMode) {
                 const p = groundPoint(e);
                 if (p) drawFootprint(p);
+                return;
+            }
+            if (annotationMode) {
+                const r = renderer.domElement.getBoundingClientRect();
+                pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+                pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+                raycaster.setFromCamera(pointer, camera);
+
+                const targets = [];
+                mainBuilding.traverse(o => { if (o.isMesh) targets.push(o); });
+                additionsGroup.traverse(o => { if (o.isMesh) targets.push(o); });
+
+                const hit = raycaster.intersectObjects(targets, false)[0];
+                if (!hit) return;
+                let g = hit.object;
+                while (g.parent && g.parent !== mainBuilding && g.parent !== additionsGroup) {
+                    g = g.parent;
+                }
+                const parentGroup = (g.parent === additionsGroup) ? g : mainBuilding;
+                const text = prompt('請輸入標示文字', '');
+                if (text === null || text.trim() === '') return;
+                addAnnotation(hit.point.clone(), text.trim(), $('annotationIcon').value, $('annotationColor').value,
+                    parentGroup);
+                return;
+            }
+            if (deleteMode) {
+                const building = getBuildingFromRaycast(e);
+                if (building) {
+                    selectBuildings([building]);
+                    deleteSelectedBuildings();
+                }
                 return;
             }
             // 其他模式維持原有行為，但排除selectionMode（因為已經用點擊聚焦取代）
