@@ -397,12 +397,11 @@
         @media(max-width:780px) {
             #app {
                 flex-direction: column;
-                height: auto;
-                min-height: 100dvh;
-                overflow: auto;
+                height: 100dvh;
+                overflow: hidden;
             }
             .sidebar {
-                flex-basis: auto;
+                flex: 0 0 auto;
                 width: 100%;
                 border-right: 0;
                 border-bottom: 1px solid var(--line);
@@ -425,8 +424,8 @@
                 height: 26px;
             }
             .workspace {
-                height: 58dvh;
-                min-height: 380px;
+                flex: 1 1 auto;
+                min-height: 0;
             }
             .row {
                 grid-template-columns: 1fr 1fr;
@@ -655,7 +654,7 @@
             RIGHT: THREE.MOUSE.PAN
         };
         controls.touches = {
-            ONE: THREE.TOUCH.ROTATE_PAN,
+            ONE: THREE.TOUCH.ROTATE,
             TWO: THREE.TOUCH.DOLLY_PAN
         };
         controls.update();
