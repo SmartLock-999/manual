@@ -268,6 +268,41 @@
             color: var(--muted);
             margin-left: 9px;
         }
+        .search-block {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1 1 auto;
+            max-width: 320px;
+            margin: 0 14px;
+            min-width: 0;
+        }
+        .search-block input {
+            flex: 1 1 auto;
+            min-width: 0;
+            height: 30px;
+            padding: 0 10px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            font-size: 12px;
+            background: #fff;
+            color: var(--ink);
+        }
+        .search-block input:focus {
+            outline: none;
+            border-color: var(--blue);
+        }
+        .search-block button {
+            flex: 0 0 auto;
+            height: 30px;
+            padding: 0 10px;
+            background: var(--blue);
+            color: #fff;
+            border: 1px solid var(--blue);
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
         .tools {
             display: flex;
             gap: 7px;
@@ -425,6 +460,18 @@
             }
             .tools button {
                 padding: 5px 7px;
+            }
+            .search-block {
+                max-width: 120px;
+                margin: 0 6px;
+            }
+            .search-block input {
+                font-size: 11px;
+                padding: 0 6px;
+            }
+            .search-block button {
+                padding: 0 6px;
+                font-size: 11px;
             }
         }
     </style>
@@ -588,6 +635,11 @@
             <button id="sidebarToggleBtn" class="sidebar-toggle" type="button" title="收合功能欄" aria-label="收合功能欄">‹</button>
             <header class="topbar">
                 <div class="title-block"><strong id="projectFileName">3D 建築視圖</strong><span>拖曳旋轉 · 滾輪縮放</span></div>
+                <div class="search-block">
+                    <input id="annotationSearchInput" type="text" placeholder="🔍 搜尋標註點…" list="annotationSearchList" autocomplete="off" />
+                    <datalist id="annotationSearchList"></datalist>
+                    <button id="annotationSearchBtn" title="搜尋並跳至標註點">跳至</button>
+                </div>
                 <div class="tools">
                     <button id="topMoveBtn">↕ 移動</button>
                     <button id="topAnnotationBtn">＋ 標示</button>
@@ -595,7 +647,7 @@
                 </div>
             </header>
             <div id="canvas" class="canvas-wrap"></div>
-            <div id="mode" class="mode">點擊建築表面以放置標示</div>
+            <div id="mode" class="mode">點擊建築表面或地面任意處以放置標示</div>
             <!-- 右下 legend 已移除 -->
         </section>
     </main>
@@ -689,6 +741,11 @@
 
         const relationGroup = new THREE.Group();
         scene.add(relationGroup);
+
+        // 供標註在地面/場地任意點使用的容器 (不隨建築物移動/縮放)
+        const groundGroup = new THREE.Group();
+        groundGroup.userData.buildingId = -1;
+        scene.add(groundGroup);
 
         // === STATE ===
         let annotations = [];
@@ -1106,6 +1163,7 @@
 
         function findBuildingById(id) {
             if (id === 0) return mainBuilding;
+            if (id === -1) return groundGroup;
             for (let child of additionsGroup.children) {
                 if (child.userData.buildingId === id) return child;
             }
@@ -1174,7 +1232,7 @@
             pointer.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
             raycaster.setFromCamera(pointer, camera);
 
-            const targets = [];
+            const targets = [ground];
             mainBuilding.traverse(o => { if (o.isMesh) targets.push(o); });
             additionsGroup.traverse(o => { if (o.isMesh) targets.push(o); });
 
@@ -1304,6 +1362,43 @@
                     el.appendChild(badge);
                 }
             });
+            updateAnnotationSearchList();
+        }
+
+        // === 標註點搜尋 ===
+        function updateAnnotationSearchList() {
+            const list = $('annotationSearchList');
+            if (!list) return;
+            list.innerHTML = '';
+            annotations.forEach(a => {
+                if (!a.text) return;
+                const opt = document.createElement('option');
+                opt.value = a.text;
+                list.appendChild(opt);
+            });
+        }
+
+        function jumpToAnnotation(index) {
+            const data = annotations[index];
+            if (!data) return;
+            clearModes();
+            selectAnnotation(index);
+            const worldPos = new THREE.Vector3(data.position[0], data.position[1], data.position[2]);
+            controls.target.copy(worldPos);
+            controls.update();
+            $('analysisStatus').textContent = `已跳至標註點：${data.text}`;
+        }
+
+        function searchAnnotation(query) {
+            const q = (query || '').trim().toLowerCase();
+            if (!q) { $('analysisStatus').textContent = '請輸入要搜尋的標註文字'; return; }
+            let idx = annotations.findIndex(a => (a.text || '').toLowerCase() === q);
+            if (idx < 0) idx = annotations.findIndex(a => (a.text || '').toLowerCase().includes(q));
+            if (idx < 0) {
+                $('analysisStatus').textContent = `找不到符合「${query}」的標註點`;
+                return;
+            }
+            jumpToAnnotation(idx);
         }
 
         function drawRelation(a, b, order, color, width, relationRef) {
@@ -2061,6 +2156,7 @@
 
         function getBuildingGroupFromHit(hit) {
             if (!hit) return mainBuilding;
+            if (hit.object === ground) return groundGroup;
             let obj = hit.object;
             while (obj.parent && obj.parent !== mainBuilding && obj.parent !== additionsGroup) {
                 obj = obj.parent;
@@ -2427,7 +2523,7 @@
             annotationMode = next;
             $('annotationBtn').classList.toggle('active', next);
             $('topAnnotationBtn').classList.toggle('active-tool', next);
-            $('mode').textContent = '點擊建築表面放置標示';
+            $('mode').textContent = '點擊建築表面或地面任意處放置標示';
             $('mode').classList.toggle('show', next);
             renderer.domElement.style.cursor = next ? 'crosshair' : 'grab';
         }
@@ -2526,6 +2622,13 @@
             renderer.domElement.style.cursor = next ? 'pointer' : 'grab';
         };
         $('deleteSelectedRelationsBtn').onclick = deleteSelectedRelations;
+        $('annotationSearchBtn').onclick = () => searchAnnotation($('annotationSearchInput').value);
+        $('annotationSearchInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                searchAnnotation($('annotationSearchInput').value);
+            }
+        });
         $('editAnnotationBtn').onclick = editSelectedAnnotation;
         $('deleteBuildingBtn').onclick = deleteSelectedBuildings;
 
@@ -2695,15 +2798,24 @@
                 additionsGroup.traverse(o => { if (o.isMesh) targets.push(o); });
 
                 const hit = raycaster.intersectObjects(targets, false)[0];
-                if (!hit) return;
-                let g = hit.object;
-                while (g.parent && g.parent !== mainBuilding && g.parent !== additionsGroup) {
-                    g = g.parent;
+                let point, parentGroup;
+                if (hit) {
+                    let g = hit.object;
+                    while (g.parent && g.parent !== mainBuilding && g.parent !== additionsGroup) {
+                        g = g.parent;
+                    }
+                    parentGroup = (g.parent === additionsGroup) ? g : mainBuilding;
+                    point = hit.point.clone();
+                } else {
+                    // 未點中建築物表面時，改為在地面/場地任意點標註
+                    const groundHit = raycaster.intersectObject(ground)[0];
+                    if (!groundHit) return;
+                    point = groundHit.point.clone();
+                    parentGroup = groundGroup;
                 }
-                const parentGroup = (g.parent === additionsGroup) ? g : mainBuilding;
                 const text = prompt('請輸入標示文字', '');
                 if (text === null || text.trim() === '') return;
-                addAnnotation(hit.point.clone(), text.trim(), $('annotationIcon').value, $('annotationColor').value,
+                addAnnotation(point, text.trim(), $('annotationIcon').value, $('annotationColor').value,
                     parentGroup);
                 return;
             }
@@ -2712,6 +2824,24 @@
                 if (building) {
                     selectBuildings([building]);
                     deleteSelectedBuildings();
+                }
+                return;
+            }
+            if (lineSelectMode) {
+                const r = renderer.domElement.getBoundingClientRect();
+                pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+                pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+                raycaster.setFromCamera(pointer, camera);
+
+                const hit = raycaster.intersectObjects(relationGroup.children, true)[0];
+                if (hit) {
+                    let g = hit.object;
+                    while (g && g.parent !== relationGroup) g = g.parent;
+                    if (g && g.userData.relationId != null) {
+                        toggleRelationSelection(g.userData.relationId, g);
+                    }
+                } else {
+                    $('analysisStatus').textContent = '未點中任何連線';
                 }
                 return;
             }
