@@ -312,6 +312,9 @@
             background: #fff;
             border: 1px solid var(--line);
             font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
         .tools button.active-tool {
             background: var(--blue);
@@ -374,6 +377,82 @@
             padding: 1px 5px;
             line-height: 1.4;
             border: 1px solid #fff;
+        }
+        @keyframes chainBlink {
+            0%, 100% { outline-color: #ff2d55; box-shadow: 0 0 0 5px #ff2d5555; }
+            50% { outline-color: #ff2d5500; box-shadow: 0 0 0 0px #ff2d5500; }
+        }
+        .annotation.chain-blink {
+            outline: 2px solid #ff2d55;
+            outline-offset: 2px;
+            animation: chainBlink .9s ease-in-out infinite;
+        }
+        @keyframes chainStartPulse {
+            0%, 100% { box-shadow: 0 0 10px 2px #2dd4ffaa; outline-width: 3px; }
+            50% { box-shadow: 0 0 20px 7px #2dd4ffcc; outline-width: 5px; }
+        }
+        .annotation.chain-start {
+            outline: 3px solid #2dd4ff;
+            outline-offset: 3px;
+            box-shadow: 0 0 14px #2dd4ffaa;
+            z-index: 20;
+            font-size: 15px;
+            padding: 5px 13px 5px 26px;
+            font-weight: 700;
+            animation: chainStartPulse 1.3s ease-in-out infinite;
+        }
+        .axis-move-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 4px;
+        }
+        .axis-move-group {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            background: #f4f6fa;
+            border: 1px solid var(--line);
+            border-radius: 7px;
+            padding: 4px 5px;
+        }
+        .axis-move-group span {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--muted);
+            width: 10px;
+            text-align: center;
+        }
+        .axis-move-group input {
+            width: 0;
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: 12px;
+            text-align: center;
+            color: var(--ink);
+        }
+        .axis-move-group input:focus {
+            outline: none;
+        }
+        .axis-btn {
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+            border: 1px solid var(--line);
+            background: #fff;
+            color: var(--ink);
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1;
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            flex: 0 0 auto;
+        }
+        .axis-btn:hover {
+            border-color: var(--blue);
+            color: var(--blue);
         }
         .mode {
             position: absolute;
@@ -459,7 +538,13 @@
                 display: none;
             }
             .tools button {
-                padding: 5px 7px;
+                padding: 6px 9px;
+            }
+            .tools button .label {
+                display: none;
+            }
+            .tools button .icon {
+                font-size: 15px;
             }
             .search-block {
                 max-width: 120px;
@@ -581,6 +666,13 @@
                             </div>
                             <div class="field"><label>顏色</label><input id="annotationColor" type="color" value="#5f8aff" /></div>
                         </div>
+                        <div class="field">
+                            <label>標註樓層</label>
+                            <select id="annotationFloorSelect">
+                                <option value="surface">依畫面點擊 (建物表面)</option>
+                            </select>
+                            <span class="hint">選擇樓層後，可點擊該樓層平面任意處新增標註 (以目前選取的建物為準，預設主建築)</span>
+                        </div>
                         <div class="field"><label>標註深度</label><input id="annotationDepth" type="range" min="0" max="100" value="0" /><span id="depthValue" class="hint">0%：表層</span></div>
                         <div class="row">
                             <div class="field"><label>連線顏色</label><input id="lineColor" type="color" value="#ff8b36" /></div>
@@ -607,6 +699,33 @@
                             <button id="deleteAllRelationsBtn" class="danger" disabled>刪除所有連線</button>
                         </div>
                         <button id="editAnnotationBtn" class="secondary full" disabled>編輯選取標註文字</button>
+                        <div class="field" id="axisMovePanel" style="display:none;">
+                            <label>選取標註微調 (X / Y / Z)</label>
+                            <div class="axis-move-row">
+                                <div class="axis-move-group">
+                                    <span>X</span>
+                                    <button type="button" class="axis-btn" data-axis="0" data-dir="-1">−</button>
+                                    <input id="axisMoveX" type="number" step="0.1" />
+                                    <button type="button" class="axis-btn" data-axis="0" data-dir="1">＋</button>
+                                </div>
+                                <div class="axis-move-group">
+                                    <span>Y</span>
+                                    <button type="button" class="axis-btn" data-axis="1" data-dir="-1">−</button>
+                                    <input id="axisMoveY" type="number" step="0.1" />
+                                    <button type="button" class="axis-btn" data-axis="1" data-dir="1">＋</button>
+                                </div>
+                                <div class="axis-move-group">
+                                    <span>Z</span>
+                                    <button type="button" class="axis-btn" data-axis="2" data-dir="-1">−</button>
+                                    <input id="axisMoveZ" type="number" step="0.1" />
+                                    <button type="button" class="axis-btn" data-axis="2" data-dir="1">＋</button>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="field"><label>移動步進</label><input id="axisMoveStep" type="number" min="0.05" step="0.05" value="0.5" /></div>
+                            </div>
+                            <span class="hint">拖曳標註點時會自動判別移動軸向：水平拖曳=X/Z、垂直拖曳=Y (高度)，無需手動點選；此面板僅供需要精確座標時使用。</span>
+                        </div>
                         <p class="hint" id="multiLinkStatus">點擊標註點選取 (依序)</p>
                     </div>
                 </div>
@@ -641,9 +760,9 @@
                     <button id="annotationSearchBtn" title="搜尋並跳至標註點">跳至</button>
                 </div>
                 <div class="tools">
-                    <button id="topMoveBtn">↕ 移動</button>
-                    <button id="topAnnotationBtn">＋ 標示</button>
-                    <button id="topDeleteBtn">🗑 刪除</button>
+                    <button id="topMoveBtn" title="移動"><span class="icon">↕</span><span class="label">移動</span></button>
+                    <button id="topAnnotationBtn" title="標示"><span class="icon">＋</span><span class="label">標示</span></button>
+                    <button id="topDeleteBtn" title="刪除"><span class="icon">🗑</span><span class="label">刪除</span></button>
                 </div>
             </header>
             <div id="canvas" class="canvas-wrap"></div>
@@ -776,6 +895,11 @@
         let selectedRelationIds = [];
         let nextRelationId = 1;
         let markerDragIndex = -1;
+        let markerDragStartScreen = null;
+        let markerDragStartWorldPos = null;
+        let markerDragAxisMode = null; // 'horizontal' (X/Z) 或 'vertical' (Y)，由拖曳方向自動判別
+        let highlightedChain = { prevIndex: -1, nextIndex: -1, prevRelationId: null, nextRelationId: null, startIndex: -1 };
+        const LINE_REFERENCE_DISTANCE = 40; // 連線視覺粗細的基準攝影機距離，用於縮放視角自動校正
 
         let isDragging = false;
         let dragTarget = null;
@@ -788,6 +912,8 @@
             pointer = new THREE.Vector2();
         raycaster.params.Line = raycaster.params.Line || {};
         raycaster.params.Line.threshold = 0.6;
+
+        const STORY_HEIGHT = 3.35; // 需與 createBuilding 中樓層高度保持一致
 
         function hex(v) { return new THREE.Color(v) }
 
@@ -804,7 +930,7 @@
             const group = new THREE.Group();
             const w = Math.max(5, width || 14);
             const d = shape === 'cylinder' ? w : (customDepth || w * 0.67);
-            const h = 3.35;
+            const h = STORY_HEIGHT;
 
             const wallColorHex = hex(wallColor || '#e5e1d8');
             const glassColorHex = hex(glassColor || '#557c9c');
@@ -1189,7 +1315,7 @@
 
                 const timer = setTimeout(() => {
                     dragStarted = true;
-                    beginMarkerDrag(index);
+                    beginMarkerDrag(index, startX, startY);
                 }, MARKER_LONG_PRESS_MS);
 
                 function onMove(ev) {
@@ -1216,17 +1342,82 @@
             });
         }
 
-        function beginMarkerDrag(index) {
+        function beginMarkerDrag(index, startScreenX, startScreenY) {
             markerDragIndex = index;
             controls.enabled = false;
+            markerDragStartScreen = { x: startScreenX, y: startScreenY };
+            markerDragStartWorldPos = annotations[index] ? [...annotations[index].position] : null;
+            markerDragAxisMode = null;
             const el = annotationObjects[index]?.element;
             if (el) el.classList.add('dragging');
-            $('mode').textContent = '拖曳標註點以移動位置，放開以放置';
+            $('mode').textContent = '拖曳標註點以移動 (自動判別 X/Z 或 Y 軸)，放開以放置';
             $('mode').classList.add('show');
             $('analysisStatus').textContent = '拖曳標註點中…';
         }
 
+        const AXIS_LOCK_PIXELS = 10; // 拖曳超過此像素距離後鎖定判別出的軸向，避免抖動反覆切換
+
         function updateMarkerDrag(index, ev) {
+            const data = annotations[index];
+            const obj = annotationObjects[index];
+            if (!data || !obj || !markerDragStartScreen || !markerDragStartWorldPos) return;
+
+            const dx = ev.clientX - markerDragStartScreen.x;
+            const dy = ev.clientY - markerDragStartScreen.y;
+
+            // 自動判別移動軸向：拖曳距離夠大之前不判定，之後依水平/垂直分量比例鎖定，
+            // 讓使用者純粹用滑鼠拖曳即可自動決定要調整 X/Z (水平面) 還是 Y (高度)，無需另外開啟面板操作。
+            if (!markerDragAxisMode && Math.hypot(dx, dy) > AXIS_LOCK_PIXELS) {
+                markerDragAxisMode = Math.abs(dy) > Math.abs(dx) * 1.15 ? 'vertical' : 'horizontal';
+            }
+
+            if (markerDragAxisMode === 'vertical') {
+                // 垂直拖曳 → 自動判別為 Y 軸 (高度) 調整，X/Z 維持拖曳起點座標
+                const dist = camera.position.distanceTo(new THREE.Vector3(...markerDragStartWorldPos));
+                const worldPerPixel = Math.max(0.01, dist * 0.0016);
+                const newY = markerDragStartWorldPos[1] - dy * worldPerPixel;
+                data.position = [markerDragStartWorldPos[0], newY, markerDragStartWorldPos[2]];
+                data.floor = null; // 已脫離原樓層平面，改為自由高度
+                obj.position.copy(obj.parent.worldToLocal(new THREE.Vector3(...data.position)));
+                $('analysisStatus').textContent = `自動判別：垂直移動中 (Y = ${newY.toFixed(2)})`;
+                return;
+            }
+
+            $('analysisStatus').textContent = '自動判別：水平面移動中 (X / Z)';
+
+            // 若此標註是透過「標註樓層」選擇建立的，移動時仍鎖定在該樓層平面上。
+            // 改為以「攝影機水平右方向 / 前方向」將滑鼠拖曳的螢幕位移，直接映射成該樓層平面上的
+            // 世界座標相對位移 (而非用滑鼠射線與樓層平面求交的絕對定位)。
+            // 絕對定位在非俯視角度下，射線與平面求交常會落在離螢幕游標很遠的座標，
+            // 導致每次拖曳都被夾回樓層外框邊緣；改為相對移動後，任何視角都能穩定、直覺地移動到目的地，
+            // 且變換視角後再次拖曳會從目前位置繼續移動，不會重置。
+            if (data.floor) {
+                const building = findBuildingById(data.buildingId) || mainBuilding;
+                const localY = getFloorLocalY(data.floor, building);
+                if (localY === null) return;
+
+                const dist = camera.position.distanceTo(new THREE.Vector3(...markerDragStartWorldPos));
+                const worldPerPixel = Math.max(0.01, dist * 0.0016);
+
+                const camRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+                camRight.y = 0;
+                if (camRight.lengthSq() < 1e-6) camRight.set(1, 0, 0); else camRight.normalize();
+
+                const camForward = new THREE.Vector3();
+                camera.getWorldDirection(camForward);
+                camForward.y = 0;
+                if (camForward.lengthSq() < 1e-6) camForward.set(0, 0, -1); else camForward.normalize();
+
+                const rawPoint = new THREE.Vector3(...markerDragStartWorldPos)
+                    .addScaledVector(camRight, dx * worldPerPixel)
+                    .addScaledVector(camForward, -dy * worldPerPixel);
+
+                const point = clampPointToFloorBounds(building, rawPoint, localY);
+                data.position = point.toArray();
+                obj.position.copy(building.worldToLocal(point.clone()));
+                return;
+            }
+
             const r = renderer.domElement.getBoundingClientRect();
             pointer.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
             pointer.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
@@ -1238,10 +1429,6 @@
 
             const hit = raycaster.intersectObjects(targets, false)[0];
             if (!hit) return;
-
-            const data = annotations[index];
-            const obj = annotationObjects[index];
-            if (!data || !obj) return;
 
             const newParent = getBuildingGroupFromHit(hit);
             data.position = hit.point.toArray();
@@ -1257,6 +1444,9 @@
 
         function finishMarkerDrag(index) {
             markerDragIndex = -1;
+            markerDragStartScreen = null;
+            markerDragStartWorldPos = null;
+            markerDragAxisMode = null;
             controls.enabled = true;
             const el = annotationObjects[index]?.element;
             if (el) el.classList.remove('dragging');
@@ -1264,9 +1454,154 @@
             $('mode').classList.remove('show');
             $('analysisStatus').textContent = '已更新標註位置。';
             autoSave();
+            updateAxisMovePanel();
+        }
+
+        // === 標註點 X/Y/Z 軸精確移動 (不需選擇樓層) ===
+        function updateAxisMovePanel() {
+            const panel = $('axisMovePanel');
+            if (!panel) return;
+            const data = annotations[selectedAnnotationIndex];
+            if (selectedAnnotationIndex < 0 || !data) {
+                panel.style.display = 'none';
+                return;
+            }
+            panel.style.display = '';
+            $('axisMoveX').value = data.position[0].toFixed(2);
+            $('axisMoveY').value = data.position[1].toFixed(2);
+            $('axisMoveZ').value = data.position[2].toFixed(2);
+        }
+
+        function setAnnotationPosition(index, newPos) {
+            const data = annotations[index];
+            const obj = annotationObjects[index];
+            if (!data || !obj) return;
+            data.position = newPos;
+            const worldPos = new THREE.Vector3(newPos[0], newPos[1], newPos[2]);
+            const parentGroup = obj.parent || findBuildingById(data.buildingId) || mainBuilding;
+            const localPos = parentGroup.worldToLocal(worldPos.clone());
+            obj.position.copy(localPos);
+            rebuildRelations();
+            updateAxisMovePanel();
+            autoSave();
+        }
+
+        function nudgeSelectedAnnotation(axis, dir) {
+            if (selectedAnnotationIndex < 0 || !annotations[selectedAnnotationIndex]) return;
+            const step = parseFloat($('axisMoveStep').value) || 0.5;
+            const data = annotations[selectedAnnotationIndex];
+            const pos = [...data.position];
+            pos[axis] = (pos[axis] || 0) + dir * step;
+            if (axis === 1) data.floor = null;
+            setAnnotationPosition(selectedAnnotationIndex, pos);
+            $('analysisStatus').textContent = `已沿 ${['X', 'Y', 'Z'][axis]} 軸移動標註點`;
+        }
+
+        function setSelectedAnnotationAxis(axis, value) {
+            if (selectedAnnotationIndex < 0 || !annotations[selectedAnnotationIndex]) return;
+            const v = parseFloat(value);
+            if (isNaN(v)) return;
+            const data = annotations[selectedAnnotationIndex];
+            const pos = [...data.position];
+            pos[axis] = v;
+            if (axis === 1) data.floor = null;
+            setAnnotationPosition(selectedAnnotationIndex, pos);
+        }
+
+        // === 選取/搜尋標註點的連結鏈高亮 ===
+        function findChainStart(index) {
+            let current = index;
+            const visited = new Set();
+            while (!visited.has(current)) {
+                visited.add(current);
+                const incoming = relations.find(r => r.to === current);
+                if (!incoming) break;
+                current = incoming.from;
+            }
+            return current;
+        }
+
+        function setRelationColor(group, hexColor) {
+            if (group.userData.shaft) group.userData.shaft.material.color.setHex(hexColor);
+            if (group.userData.head) group.userData.head.material.color.setHex(hexColor);
+        }
+
+        function clearChainHighlight() {
+            annotationObjects.forEach(obj => {
+                if (obj.element) obj.element.classList.remove('chain-blink', 'chain-start');
+            });
+            relationGroup.children.forEach(g => {
+                if (g.userData.chainBlink) {
+                    g.userData.chainBlink = false;
+                    const isSelected = g.userData.relationId != null && selectedRelationIds.includes(g.userData
+                        .relationId);
+                    setRelationColor(g, isSelected ? 0xff2d55 : g.userData.origColorHex);
+                }
+            });
+            highlightedChain = { prevIndex: -1, nextIndex: -1, prevRelationId: null, nextRelationId: null, startIndex: -1 };
+        }
+
+        function updateChainHighlight(index) {
+            clearChainHighlight();
+            if (index < 0 || !annotations[index]) return;
+
+            const incomingRel = relations.find(r => r.to === index);
+            const outgoingRel = relations.find(r => r.from === index);
+            const prevIndex = incomingRel ? incomingRel.from : -1;
+            const nextIndex = outgoingRel ? outgoingRel.to : -1;
+            const startIndex = findChainStart(index);
+
+            highlightedChain = {
+                prevIndex,
+                nextIndex,
+                prevRelationId: incomingRel ? incomingRel.id : null,
+                nextRelationId: outgoingRel ? outgoingRel.id : null,
+                startIndex
+            };
+
+            if (prevIndex >= 0 && annotationObjects[prevIndex]?.element) {
+                annotationObjects[prevIndex].element.classList.add('chain-blink');
+            }
+            if (nextIndex >= 0 && annotationObjects[nextIndex]?.element) {
+                annotationObjects[nextIndex].element.classList.add('chain-blink');
+            }
+            if (startIndex >= 0 && annotationObjects[startIndex]?.element) {
+                annotationObjects[startIndex].element.classList.add('chain-start');
+            }
+
+            relationGroup.children.forEach(g => {
+                if (g.userData.relationId === highlightedChain.prevRelationId ||
+                    g.userData.relationId === highlightedChain.nextRelationId) {
+                    g.userData.chainBlink = true;
+                }
+            });
+        }
+
+        function updateRelationBlink() {
+            const hasBlink = relationGroup.children.some(g => g.userData.chainBlink);
+            if (!hasBlink) return;
+            const t = Date.now() * 0.005;
+            const mix = 0.35 + ((Math.sin(t) + 1) / 2) * 0.65;
+            relationGroup.children.forEach(g => {
+                if (!g.userData.chainBlink) return;
+                const base = new THREE.Color(g.userData.origColorHex);
+                const blink = new THREE.Color(0xff2d55);
+                base.lerp(blink, mix);
+                setRelationColor(g, base.getHex());
+            });
+        }
+
+        function updateRelationVisualScale() {
+            relationGroup.children.forEach(g => {
+                if (!g.userData.isRelationVisual) return;
+                const dist = camera.position.distanceTo(g.userData.midpoint || g.position);
+                const scaleFactor = THREE.MathUtils.clamp(dist / LINE_REFERENCE_DISTANCE, 0.35, 3.5);
+                g.scale.set(scaleFactor, 1, scaleFactor);
+            });
         }
 
         function rebuildAnnotations() {
+            clearChainHighlight();
             annotationObjects.forEach(obj => {
                 if (obj.parent) obj.parent.remove(obj);
             });
@@ -1316,6 +1651,7 @@
             rebuildRelations();
             updateAnnotationBadges();
             updateMultiLinkUI();
+            updateAnnotationFloorOptions();
         }
 
         function handleAnnotationClick(index, event) {
@@ -1401,22 +1737,49 @@
             jumpToAnnotation(idx);
         }
 
+        // 以實體圓柱 (桿身) + 圓錐 (箭頭) 取代 THREE.ArrowHelper，
+        // 讓「連線粗細」實際套用在線段本身，而不是只放大箭頭。
         function drawRelation(a, b, order, color, width, relationRef) {
             const start = new THREE.Vector3(...a.position),
                 end = new THREE.Vector3(...b.position),
                 dir = end.clone().sub(start),
                 length = dir.length();
             if (!length) return null;
+            dir.normalize();
+
             const group = new THREE.Group();
-            const arrow = new THREE.ArrowHelper(dir.normalize(), start, length, color.getHex(), Math.min(0.6, width * 0.2),
-                Math.min(0.3, width * 0.1));
-            const arrowScale = Math.max(0.3, width / 3);
-            arrow.scale.set(arrowScale, 1, arrowScale);
-            group.add(arrow);
+            group.position.copy(start);
+            group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+
+            const headLength = Math.min(length * 0.35, 0.45 + width * 0.16);
+            const headRadius = Math.max(0.07, width * 0.12);
+            const shaftLength = Math.max(0.001, length - headLength);
+            const shaftRadius = Math.max(0.025, width * 0.05);
+            const colorHex = color.getHex();
+
+            const shaft = new THREE.Mesh(
+                new THREE.CylinderGeometry(shaftRadius, shaftRadius, shaftLength, 8),
+                new THREE.MeshBasicMaterial({ color: colorHex })
+            );
+            shaft.position.y = shaftLength / 2;
+            group.add(shaft);
+
+            const head = new THREE.Mesh(
+                new THREE.ConeGeometry(headRadius, headLength, 10),
+                new THREE.MeshBasicMaterial({ color: colorHex })
+            );
+            head.position.y = shaftLength + headLength / 2;
+            group.add(head);
+
             group.userData.relationId = relationRef ? relationRef.id : null;
-            group.userData.origColorHex = color.getHex();
+            group.userData.origColorHex = colorHex;
+            group.userData.shaft = shaft;
+            group.userData.head = head;
+            group.userData.isRelationVisual = true;
+            group.userData.midpoint = start.clone().add(dir.clone().multiplyScalar(length / 2));
+
             if (relationRef && selectedRelationIds.includes(relationRef.id)) {
-                arrow.setColor(0xff2d55);
+                setRelationColor(group, 0xff2d55);
             }
             relationGroup.add(group);
             return group;
@@ -1425,21 +1788,19 @@
         function clearRelationSelection() {
             selectedRelationIds = [];
             relationGroup.children.forEach(g => {
-                if (g.userData.origColorHex !== undefined && g.children[0]) g.children[0].setColor(g.userData
-                    .origColorHex);
+                if (g.userData.origColorHex !== undefined) setRelationColor(g, g.userData.origColorHex);
             });
             $('deleteSelectedRelationsBtn').disabled = true;
         }
 
         function toggleRelationSelection(id, group) {
             const idx = selectedRelationIds.indexOf(id);
-            const arrow = group.children[0];
             if (idx >= 0) {
                 selectedRelationIds.splice(idx, 1);
-                if (arrow) arrow.setColor(group.userData.origColorHex);
+                setRelationColor(group, group.userData.origColorHex);
             } else {
                 selectedRelationIds.push(id);
-                if (arrow) arrow.setColor(0xff2d55);
+                setRelationColor(group, 0xff2d55);
             }
             $('deleteSelectedRelationsBtn').disabled = selectedRelationIds.length === 0;
             $('analysisStatus').textContent = selectedRelationIds.length > 0 ?
@@ -1465,6 +1826,8 @@
                 selectedAnnotationIndex = -1;
                 $('deleteSelectedAnnotationBtn').disabled = true;
                 $('editAnnotationBtn').disabled = true;
+                clearChainHighlight();
+                updateAxisMovePanel();
                 return;
             }
             selectedAnnotationIndex = index;
@@ -1474,6 +1837,8 @@
                 $('editAnnotationBtn').disabled = false;
                 $('analysisStatus').textContent = `已選取標註：${annotations[index].text}`;
             }
+            updateChainHighlight(index);
+            updateAxisMovePanel();
         }
 
         function toggleAnnotationSelection(index) {
@@ -1754,6 +2119,7 @@
             selectionBoxes.forEach(box => scene.remove(box));
             selectionBoxes = [];
             selectedBuildings = groups.filter(g => g !== null);
+            updateAnnotationFloorOptions();
 
             const scaleInput = $('scaleInput');
             if (selectedBuildings.length === 0) {
@@ -2120,7 +2486,7 @@
         }
 
         function addAnnotation(point, text, icon = $('annotationIcon').value, color = $('annotationColor').value,
-            parentGroup = mainBuilding) {
+            parentGroup = mainBuilding, floorValue = null) {
             const el = document.createElement('div');
             el.className = 'annotation';
             el.textContent = text;
@@ -2139,7 +2505,8 @@
                 text,
                 icon,
                 color,
-                buildingId: buildingId
+                buildingId: buildingId,
+                floor: (floorValue && floorValue !== 'surface') ? floorValue : null
             };
             const index = annotations.length;
             annotations.push(record);
@@ -2201,6 +2568,101 @@
             const hits = raycaster.intersectObject(ground);
             if (hits.length > 0) return hits[0].point;
             return null;
+        }
+
+        // === 樓層平面標註 (可在任一樓層平面任意點新增標註，不受限於外牆表面) ===
+        function getAnnotationTargetBuilding() {
+            if (selectedBuildings.length > 0) return selectedBuildings[0];
+            if (mainBuilding.userData.floors > 0) return mainBuilding;
+            return null;
+        }
+
+        function updateAnnotationFloorOptions() {
+            const select = $('annotationFloorSelect');
+            if (!select) return;
+            const prevValue = select.value;
+            const building = getAnnotationTargetBuilding();
+            select.innerHTML = '';
+            const surfaceOpt = document.createElement('option');
+            surfaceOpt.value = 'surface';
+            surfaceOpt.textContent = '依畫面點擊 (建物表面)';
+            select.appendChild(surfaceOpt);
+
+            const floors = building ? (building.userData.floors || 0) : 0;
+            for (let k = 1; k <= floors; k++) {
+                const opt = document.createElement('option');
+                opt.value = String(k);
+                opt.textContent = k === 1 ? '1樓 (地面樓板任意點)' : `${k}樓 (樓板任意點)`;
+                select.appendChild(opt);
+            }
+            const basements = building ? (building.userData.basements || 0) : 0;
+            for (let b = 1; b <= basements; b++) {
+                const opt = document.createElement('option');
+                opt.value = `b${b}`;
+                opt.textContent = `地下${b}樓 (樓板任意點)`;
+                select.appendChild(opt);
+            }
+
+            const values = Array.from(select.options).map(o => o.value);
+            select.value = values.includes(prevValue) ? prevValue : 'surface';
+        }
+
+        // 取得指定樓層在建物本地座標中的 Y 高度 (與 createBuilding 的樓板生成邏輯對應)
+        function getFloorLocalY(floorValue, building) {
+            if (floorValue === 'surface') return null;
+            if (typeof floorValue === 'string' && floorValue.startsWith('b')) {
+                const b = parseInt(floorValue.slice(1), 10);
+                const basements = (building && building.userData.basements) || 0;
+                // 最底層地下室：使用最底部樓板；其餘地下室：使用下一層天花板樓板
+                if (b >= basements) return -basements * STORY_HEIGHT + 0.18;
+                return -b * STORY_HEIGHT - 0.18;
+            }
+            const k = parseInt(floorValue, 10);
+            if (k <= 1) return 0;
+            return (k - 1) * STORY_HEIGHT - 0.18;
+        }
+
+        // 將世界座標點限制在建物該樓層平面範圍內 (方形以寬深為界，圓柱以半徑為界)，並校正到該樓層高度
+        function clampPointToFloorBounds(building, worldPoint, localY) {
+            const localPoint = building.worldToLocal(worldPoint.clone());
+            const w = building.userData.width || 14;
+            const shape = building.userData.shape || 'box';
+            const d = building.userData.depth || (shape === 'cylinder' ? w : w * 0.67);
+
+            if (shape === 'cylinder') {
+                const maxR = Math.max(0.5, w / 2 - 0.3);
+                const dist = Math.hypot(localPoint.x, localPoint.z);
+                if (dist > maxR && dist > 0) {
+                    const s = maxR / dist;
+                    localPoint.x *= s;
+                    localPoint.z *= s;
+                }
+            } else {
+                const maxX = Math.max(0.5, w / 2 - 0.3);
+                const maxZ = Math.max(0.5, d / 2 - 0.3);
+                localPoint.x = Math.max(-maxX, Math.min(maxX, localPoint.x));
+                localPoint.z = Math.max(-maxZ, Math.min(maxZ, localPoint.z));
+            }
+            localPoint.y = localY;
+            return building.localToWorld(localPoint.clone());
+        }
+
+        // 以水平數學平面計算點擊位置 (可略過遮擋的牆面/樓板，命中該樓層平面上任一點)，
+        // 並將結果限制在建物的平面範圍內。用於「單次點擊新增標註」，一次點擊即為目標位置，較無角度問題。
+        function computeFloorClickPoint(event, building, localY) {
+            const r = renderer.domElement.getBoundingClientRect();
+            pointer.x = ((event.clientX - r.left) / r.width) * 2 - 1;
+            pointer.y = -((event.clientY - r.top) / r.height) * 2 + 1;
+            raycaster.setFromCamera(pointer, camera);
+
+            const worldOrigin = building.localToWorld(new THREE.Vector3(0, localY, 0));
+            const worldUp = building.localToWorld(new THREE.Vector3(0, localY + 1, 0));
+            const normal = worldUp.sub(worldOrigin).normalize();
+            const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, worldOrigin);
+            const worldPoint = new THREE.Vector3();
+            if (!raycaster.ray.intersectPlane(plane, worldPoint)) return null;
+
+            return clampPointToFloorBounds(building, worldPoint, localY);
         }
 
         function startDrag(event, building) {
@@ -2523,9 +2985,10 @@
             annotationMode = next;
             $('annotationBtn').classList.toggle('active', next);
             $('topAnnotationBtn').classList.toggle('active-tool', next);
-            $('mode').textContent = '點擊建築表面或地面任意處放置標示';
+            $('mode').textContent = '點擊建築表面或地面任意處放置標示 (或於左側選擇樓層後點擊該樓層任意處)';
             $('mode').classList.toggle('show', next);
             renderer.domElement.style.cursor = next ? 'crosshair' : 'grab';
+            if (next) updateAnnotationFloorOptions();
         }
         $('annotationBtn').onclick = toggleAnnotationMode;
         $('topAnnotationBtn').onclick = toggleAnnotationMode;
@@ -2646,6 +3109,18 @@
         $('lineColor').onchange = () => { rebuildRelations();
             autoSave(); };
         $('newProjectBtn').onclick = newProject;
+
+        // === 標註點 X/Y/Z 軸微調控制 ===
+        document.querySelectorAll('.axis-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const axis = parseInt(btn.dataset.axis, 10);
+                const dir = parseInt(btn.dataset.dir, 10);
+                nudgeSelectedAnnotation(axis, dir);
+            });
+        });
+        $('axisMoveX').addEventListener('change', e => setSelectedAnnotationAxis(0, e.target.value));
+        $('axisMoveY').addEventListener('change', e => setSelectedAnnotationAxis(1, e.target.value));
+        $('axisMoveZ').addEventListener('change', e => setSelectedAnnotationAxis(2, e.target.value));
 
         // === SIDEBAR COLLAPSE ===
         const sidebarEl = document.querySelector('.sidebar');
@@ -2788,6 +3263,20 @@
                 return;
             }
             if (annotationMode) {
+                const floorSel = $('annotationFloorSelect') ? $('annotationFloorSelect').value : 'surface';
+                if (floorSel !== 'surface') {
+                    const targetBuilding = getAnnotationTargetBuilding();
+                    if (!targetBuilding) { $('analysisStatus').textContent = '請先選取一棟建物以指定樓層'; return; }
+                    const localY = getFloorLocalY(floorSel, targetBuilding);
+                    const point = computeFloorClickPoint(e, targetBuilding, localY);
+                    if (!point) return;
+                    const text = prompt('請輸入標示文字', '');
+                    if (text === null || text.trim() === '') return;
+                    addAnnotation(point, text.trim(), $('annotationIcon').value, $('annotationColor').value,
+                        targetBuilding, floorSel);
+                    return;
+                }
+
                 const r = renderer.domElement.getBoundingClientRect();
                 pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
                 pointer.y = -((e.clientY - r.top) / r.height) * 2 + 1;
@@ -2937,6 +3426,8 @@
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
+            updateRelationVisualScale();
+            updateRelationBlink();
             renderer.render(scene, camera);
             labelRenderer.render(scene, camera);
         }
