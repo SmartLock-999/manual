@@ -3,6 +3,16 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- PWA 相關設定 -->
+    <meta name="theme-color" content="#3b67f2" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="manifest.json" />
+    
+    <!-- 網頁圖示 (Favicon) 改為 svg -->
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    
     <title>3D-PA位置標註</title>
     <style>
         :root {
@@ -474,7 +484,7 @@
             transform: translateY(0);
         }
         .legend {
-            display: none; /* 隐藏右下角提示框 */
+            display: none; /* 隱藏右下角提示框 */
         }
         .status-bar {
             font-size: 11px;
@@ -3469,6 +3479,13 @@
         window.addEventListener('beforeunload', () => { autoSave(); });
 
         console.log('Forma 已啟動，版本 6.0 — 自動聚焦點擊建築，無右下提示框');
+
+        // --- PWA Service Worker 註冊 ---
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker 已註冊，範圍:', reg.scope))
+            .catch(err => console.log('Service Worker 註冊失敗:', err));
+        }
     </script>
 </body>
 </html>
