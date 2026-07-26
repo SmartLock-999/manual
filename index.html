@@ -484,7 +484,7 @@
             transform: translateY(0);
         }
         .legend {
-            display: none; /* 隱藏右下角提示框 */
+            display: none;
         }
         .status-bar {
             font-size: 11px;
@@ -777,7 +777,6 @@
             </header>
             <div id="canvas" class="canvas-wrap"></div>
             <div id="mode" class="mode">點擊建築表面或地面任意處以放置標示</div>
-            <!-- 右下 legend 已移除 -->
         </section>
     </main>
 
@@ -871,12 +870,10 @@
         const relationGroup = new THREE.Group();
         scene.add(relationGroup);
 
-        // 供標註在地面/場地任意點使用的容器 (不隨建築物移動/縮放)
         const groundGroup = new THREE.Group();
         groundGroup.userData.buildingId = -1;
         scene.add(groundGroup);
 
-        // === STATE ===
         let annotations = [];
         let additionPrompts = [];
         let relations = [];
@@ -907,9 +904,9 @@
         let markerDragIndex = -1;
         let markerDragStartScreen = null;
         let markerDragStartWorldPos = null;
-        let markerDragAxisMode = null; // 'horizontal' (X/Z) 或 'vertical' (Y)，由拖曳方向自動判別
+        let markerDragAxisMode = null;
         let highlightedChain = { prevIndex: -1, nextIndex: -1, prevRelationId: null, nextRelationId: null, startIndex: -1 };
-        const LINE_REFERENCE_DISTANCE = 40; // 連線視覺粗細的基準攝影機距離，用於縮放視角自動校正
+        const LINE_REFERENCE_DISTANCE = 40;
 
         let isDragging = false;
         let dragTarget = null;
@@ -923,7 +920,7 @@
         raycaster.params.Line = raycaster.params.Line || {};
         raycaster.params.Line.threshold = 0.6;
 
-        const STORY_HEIGHT = 3.35; // 需與 createBuilding 中樓層高度保持一致
+        const STORY_HEIGHT = 3.35;
 
         function hex(v) { return new THREE.Color(v) }
 
@@ -935,7 +932,6 @@
             return o;
         }
 
-        // 核心：生成建築物（風格固定為現代，屋頂固定為平屋頂）
         function createBuilding(floors, basements, width, wallColor, glassColor, isMain = true, shape = 'box', customDepth = null) {
             const group = new THREE.Group();
             const w = Math.max(5, width || 14);
@@ -1053,7 +1049,6 @@
             return group;
         }
 
-        // 生成主建築 (清空)
         function generateMain() {
             while (mainBuilding.children.length > 0) {
                 mainBuilding.remove(mainBuilding.children[0]);
@@ -1077,7 +1072,6 @@
             scaleInput.value = 1;
         }
 
-        // 新增建築 (獨立)
         function addNewBuilding() {
             const floors = Math.max(0, parseInt($('floors').value) || 5);
             const basements = Math.max(0, parseInt($('basements').value) || 0);
@@ -1306,7 +1300,6 @@
             return null;
         }
 
-        // === MARKER LONG-PRESS TO MOVE ===
         const MARKER_LONG_PRESS_MS = 480;
         const MARKER_MOVE_THRESHOLD = 6;
 
@@ -1365,7 +1358,7 @@
             $('analysisStatus').textContent = '拖曳標註點中…';
         }
 
-        const AXIS_LOCK_PIXELS = 10; // 拖曳超過此像素距離後鎖定判別出的軸向，避免抖動反覆切換
+        const AXIS_LOCK_PIXELS = 10;
 
         function updateMarkerDrag(index, ev) {
             const data = annotations[index];
@@ -1375,19 +1368,16 @@
             const dx = ev.clientX - markerDragStartScreen.x;
             const dy = ev.clientY - markerDragStartScreen.y;
 
-            // 自動判別移動軸向：拖曳距離夠大之前不判定，之後依水平/垂直分量比例鎖定，
-            // 讓使用者純粹用滑鼠拖曳即可自動決定要調整 X/Z (水平面) 還是 Y (高度)，無需另外開啟面板操作。
             if (!markerDragAxisMode && Math.hypot(dx, dy) > AXIS_LOCK_PIXELS) {
                 markerDragAxisMode = Math.abs(dy) > Math.abs(dx) * 1.15 ? 'vertical' : 'horizontal';
             }
 
             if (markerDragAxisMode === 'vertical') {
-                // 垂直拖曳 → 自動判別為 Y 軸 (高度) 調整，X/Z 維持拖曳起點座標
                 const dist = camera.position.distanceTo(new THREE.Vector3(...markerDragStartWorldPos));
                 const worldPerPixel = Math.max(0.01, dist * 0.0016);
                 const newY = markerDragStartWorldPos[1] - dy * worldPerPixel;
                 data.position = [markerDragStartWorldPos[0], newY, markerDragStartWorldPos[2]];
-                data.floor = null; // 已脫離原樓層平面，改為自由高度
+                data.floor = null;
                 obj.position.copy(obj.parent.worldToLocal(new THREE.Vector3(...data.position)));
                 $('analysisStatus').textContent = `自動判別：垂直移動中 (Y = ${newY.toFixed(2)})`;
                 return;
@@ -1395,12 +1385,6 @@
 
             $('analysisStatus').textContent = '自動判別：水平面移動中 (X / Z)';
 
-            // 若此標註是透過「標註樓層」選擇建立的，移動時仍鎖定在該樓層平面上。
-            // 改為以「攝影機水平右方向 / 前方向」將滑鼠拖曳的螢幕位移，直接映射成該樓層平面上的
-            // 世界座標相對位移 (而非用滑鼠射線與樓層平面求交的絕對定位)。
-            // 絕對定位在非俯視角度下，射線與平面求交常會落在離螢幕游標很遠的座標，
-            // 導致每次拖曳都被夾回樓層外框邊緣；改為相對移動後，任何視角都能穩定、直覺地移動到目的地，
-            // 且變換視角後再次拖曳會從目前位置繼續移動，不會重置。
             if (data.floor) {
                 const building = findBuildingById(data.buildingId) || mainBuilding;
                 const localY = getFloorLocalY(data.floor, building);
@@ -1467,7 +1451,6 @@
             updateAxisMovePanel();
         }
 
-        // === 標註點 X/Y/Z 軸精確移動 (不需選擇樓層) ===
         function updateAxisMovePanel() {
             const panel = $('axisMovePanel');
             if (!panel) return;
@@ -1518,7 +1501,6 @@
             setAnnotationPosition(selectedAnnotationIndex, pos);
         }
 
-        // === 選取/搜尋標註點的連結鏈高亮 ===
         function findChainStart(index) {
             let current = index;
             const visited = new Set();
@@ -1711,7 +1693,6 @@
             updateAnnotationSearchList();
         }
 
-        // === 標註點搜尋 ===
         function updateAnnotationSearchList() {
             const list = $('annotationSearchList');
             if (!list) return;
@@ -1747,8 +1728,6 @@
             jumpToAnnotation(idx);
         }
 
-        // 以實體圓柱 (桿身) + 圓錐 (箭頭) 取代 THREE.ArrowHelper，
-        // 讓「連線粗細」實際套用在線段本身，而不是只放大箭頭。
         function drawRelation(a, b, order, color, width, relationRef) {
             const start = new THREE.Vector3(...a.position),
                 end = new THREE.Vector3(...b.position),
@@ -2580,7 +2559,6 @@
             return null;
         }
 
-        // === 樓層平面標註 (可在任一樓層平面任意點新增標註，不受限於外牆表面) ===
         function getAnnotationTargetBuilding() {
             if (selectedBuildings.length > 0) return selectedBuildings[0];
             if (mainBuilding.userData.floors > 0) return mainBuilding;
@@ -2617,13 +2595,11 @@
             select.value = values.includes(prevValue) ? prevValue : 'surface';
         }
 
-        // 取得指定樓層在建物本地座標中的 Y 高度 (與 createBuilding 的樓板生成邏輯對應)
         function getFloorLocalY(floorValue, building) {
             if (floorValue === 'surface') return null;
             if (typeof floorValue === 'string' && floorValue.startsWith('b')) {
                 const b = parseInt(floorValue.slice(1), 10);
                 const basements = (building && building.userData.basements) || 0;
-                // 最底層地下室：使用最底部樓板；其餘地下室：使用下一層天花板樓板
                 if (b >= basements) return -basements * STORY_HEIGHT + 0.18;
                 return -b * STORY_HEIGHT - 0.18;
             }
@@ -2632,7 +2608,6 @@
             return (k - 1) * STORY_HEIGHT - 0.18;
         }
 
-        // 將世界座標點限制在建物該樓層平面範圍內 (方形以寬深為界，圓柱以半徑為界)，並校正到該樓層高度
         function clampPointToFloorBounds(building, worldPoint, localY) {
             const localPoint = building.worldToLocal(worldPoint.clone());
             const w = building.userData.width || 14;
@@ -2657,8 +2632,6 @@
             return building.localToWorld(localPoint.clone());
         }
 
-        // 以水平數學平面計算點擊位置 (可略過遮擋的牆面/樓板，命中該樓層平面上任一點)，
-        // 並將結果限制在建物的平面範圍內。用於「單次點擊新增標註」，一次點擊即為目標位置，較無角度問題。
         function computeFloorClickPoint(event, building, localY) {
             const r = renderer.domElement.getBoundingClientRect();
             pointer.x = ((event.clientX - r.left) / r.width) * 2 - 1;
@@ -2759,13 +2732,11 @@
             autoSave();
         }
 
-        // === 更新檔案名稱 ===
         function updateFileName(name) {
             const el = document.getElementById('projectFileName');
             if (el) el.textContent = name || '3D 建築視圖';
         }
 
-        // === 自動儲存與還原 ===
         const STORAGE_KEY = 'forma_autosave';
 
         function getProjectData() {
@@ -2937,7 +2908,6 @@
             } catch (e) { console.warn('讀取自動儲存失敗', e); return false; }
         }
 
-        // === 開啟新檔 ===
         function newProject() {
             if (!confirm('確定要開啟新檔嗎？目前編輯的內容將會遺失。')) return;
             localStorage.removeItem(STORAGE_KEY);
@@ -2985,7 +2955,6 @@
             autoSave();
         }
 
-        // === EVENT BINDINGS ===
         $('generateBtn').onclick = addNewBuilding;
         $('showOnlyBasementBtn').onclick = showOnlyBasement;
 
@@ -3120,7 +3089,6 @@
             autoSave(); };
         $('newProjectBtn').onclick = newProject;
 
-        // === 標註點 X/Y/Z 軸微調控制 ===
         document.querySelectorAll('.axis-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const axis = parseInt(btn.dataset.axis, 10);
@@ -3132,7 +3100,6 @@
         $('axisMoveY').addEventListener('change', e => setSelectedAnnotationAxis(1, e.target.value));
         $('axisMoveZ').addEventListener('change', e => setSelectedAnnotationAxis(2, e.target.value));
 
-        // === SIDEBAR COLLAPSE ===
         const sidebarEl = document.querySelector('.sidebar');
         const sidebarToggleBtn = $('sidebarToggleBtn');
         let sidebarCollapsed = false;
@@ -3148,47 +3115,64 @@
             if (e.propertyName === 'width' || e.propertyName === 'flex-basis' || e.propertyName === 'max-height') resize();
         });
 
-        // === 📱 行動裝置返回鍵處理：按返回先收合側邊欄，再按才離開 ===
-        let backButtonCount = 0;
-        let backButtonTimer = null;
-
-        window.addEventListener('popstate', (e) => {
-            // 如果側邊欄是展開的，優先收合側邊欄
-            if (!sidebarCollapsed) {
-                setSidebarCollapsed(true);
-                // 阻止真正的返回行為，pushState 保持歷史記錄不變
-                history.pushState(null, '', location.href);
-                return;
-            }
-
-            // 側邊欄已收合，執行離開邏輯
-            // 使用計數器讓第一次按返回不離開，第二次才離開
-            backButtonCount++;
-            if (backButtonTimer) clearTimeout(backButtonTimer);
+        // === 📱 行動裝置返回鍵處理 (修正版) ===
+        // 關鍵：在頁面載入時 push 一個歷史狀態，讓返回鍵能觸發 popstate
+        // 並且用 replaceState 確保不會產生多餘的歷史條目
+        (function initBackButtonHandler() {
+            // 先將當前歷史記錄替換為一個可控的狀態
+            history.replaceState({ page: 'main' }, '', location.href);
             
-            if (backButtonCount === 1) {
-                $('analysisStatus').textContent = '再按一次返回鍵離開網頁';
-                backButtonTimer = setTimeout(() => {
-                    backButtonCount = 0;
-                    $('analysisStatus').textContent = '就緒';
-                }, 3000);
-                // 阻止真正返回，保留在頁面
-                history.pushState(null, '', location.href);
-                return;
-            }
-            
-            if (backButtonCount >= 2) {
-                // 真的離開：清除計時器，並讓瀏覽器執行真正的返回
-                clearTimeout(backButtonTimer);
-                backButtonCount = 0;
-                // 讓瀏覽器真正離開
-                history.back();
-            }
-        });
+            // 然後 push 一個新狀態，這樣返回時就會觸發 popstate
+            // 這個 push 會讓歷史記錄增加一筆，使用者按返回時會回到 push 之前的狀態
+            history.pushState({ page: 'main' }, '', location.href);
 
-        // 初始化歷史記錄，讓 popstate 能夠被觸發
-        // 使用 replaceState 取代當前記錄，確保沒有多餘的歷史條目
-        history.replaceState(null, '', location.href);
+            let backCount = 0;
+            let backTimer = null;
+
+            window.addEventListener('popstate', (e) => {
+                // 如果側邊欄是展開的，優先收合側邊欄
+                if (!sidebarCollapsed) {
+                    setSidebarCollapsed(true);
+                    // 阻止真正的返回行為，重新 push 一個狀態保持歷史記錄不變
+                    history.pushState({ page: 'main' }, '', location.href);
+                    return;
+                }
+
+                // 側邊欄已收合，執行離開邏輯
+                backCount++;
+                if (backTimer) clearTimeout(backTimer);
+
+                if (backCount === 1) {
+                    $('analysisStatus').textContent = '再按一次返回鍵離開網頁';
+                    backTimer = setTimeout(() => {
+                        backCount = 0;
+                        $('analysisStatus').textContent = '就緒';
+                    }, 3000);
+                    // 阻止真正返回，重新 push 狀態
+                    history.pushState({ page: 'main' }, '', location.href);
+                    return;
+                }
+
+                if (backCount >= 2) {
+                    // 真的離開：清除計時器，讓瀏覽器執行真正的返回
+                    clearTimeout(backTimer);
+                    backCount = 0;
+                    // 移除 popstate 監聽器避免干擾，然後執行返回
+                    // 但注意：此時如果直接 history.back() 會再次觸發 popstate
+                    // 所以用 setTimeout 讓它在下一個事件循環執行
+                    setTimeout(() => {
+                        // 使用 history.go(-2) 跳過我們 push 的兩個歷史記錄
+                        // 但更好的方式是讓瀏覽器自然返回
+                        history.back();
+                    }, 10);
+                }
+            });
+
+            // 在頁面卸載前清理
+            window.addEventListener('beforeunload', () => {
+                if (backTimer) clearTimeout(backTimer);
+            });
+        })();
 
         const scaleInput = $('scaleInput');
         scaleInput.addEventListener('input', (e) => {
@@ -3196,9 +3180,7 @@
             updateScale(e.target.value);
         });
 
-        // 點擊建築自動聚焦 (不須切換選取模式)
         renderer.domElement.addEventListener('click', (e) => {
-            // 如果正在拖曳或處於特定模式則跳過
             if (isDragging) return;
             if (annotationMode || footprintMode || relationMode || multiLinkMode || lineSelectMode || deleteMode) return;
 
@@ -3221,16 +3203,13 @@
                 if (g.parent === mainBuilding) building = mainBuilding;
                 else if (g.parent === additionsGroup) building = g;
                 if (building) {
-                    // 自動選取並聚焦
                     selectBuildings([building]);
                     return;
                 }
             }
-            // 點到空白處取消選取
             if (!e.shiftKey) selectBuildings([]);
         });
 
-        // 保留移動模式的拖曳邏輯
         renderer.domElement.addEventListener('mousedown', (e) => {
             if (moveMode) {
                 const building = getBuildingFromRaycast(e);
@@ -3265,7 +3244,6 @@
             if (isDragging) endDrag();
         });
 
-        // 手機觸控：移動模式的拖曳邏輯 (對應上面的滑鼠邏輯)
         function getTouchPoint(e) {
             const t = e.touches[0] || e.changedTouches[0];
             return t ? { clientX: t.clientX, clientY: t.clientY } : null;
@@ -3306,7 +3284,6 @@
             if (isDragging) endDrag();
         });
 
-        // 框選模式仍保留
         renderer.domElement.addEventListener('click', (e) => {
             if (isDragging) return;
             if (footprintMode) {
@@ -3348,7 +3325,6 @@
                     parentGroup = (g.parent === additionsGroup) ? g : mainBuilding;
                     point = hit.point.clone();
                 } else {
-                    // 未點中建築物表面時，改為在地面/場地任意點標註
                     const groundHit = raycaster.intersectObject(ground)[0];
                     if (!groundHit) return;
                     point = groundHit.point.clone();
@@ -3386,7 +3362,6 @@
                 }
                 return;
             }
-            // 其他模式維持原有行為，但排除selectionMode（因為已經用點擊聚焦取代）
             if (selectionMode) {
                 const r = renderer.domElement.getBoundingClientRect();
                 pointer.x = ((e.clientX - r.left) / r.width) * 2 - 1;
@@ -3433,7 +3408,6 @@
             scene.add(footprintPreview);
         });
 
-        // === EXPORT / IMPORT ===
         $('exportBtn').onclick = () => {
             const data = getProjectData();
             const a = document.createElement('a');
@@ -3462,7 +3436,6 @@
             reader.readAsText(f);
         };
 
-        // === RESIZE ===
         function resize() {
             const r = canvas.getBoundingClientRect();
             if (r.width === 0 || r.height === 0) return;
@@ -3474,7 +3447,6 @@
         const resizeObserver = new ResizeObserver(resize);
         resizeObserver.observe(canvas);
 
-        // === ANIMATION LOOP ===
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
@@ -3484,7 +3456,6 @@
             labelRenderer.render(scene, camera);
         }
 
-        // === COLLAPSIBLE ===
         document.querySelectorAll('.section-header').forEach(header => {
             header.addEventListener('click', () => {
                 const targetId = header.dataset.target;
@@ -3495,7 +3466,6 @@
             });
         });
 
-        // === INIT ===
         setTimeout(resize, 50);
         generateMain();
         animate();
@@ -3520,9 +3490,8 @@
 
         window.addEventListener('beforeunload', () => { autoSave(); });
 
-        console.log('Forma 已啟動，版本 6.0 — 自動聚焦點擊建築，無右下提示框');
+        console.log('Forma 已啟動，版本 6.0 — 返回鍵修正：需按兩次返回才離開');
 
-        // --- PWA Service Worker 註冊 ---
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
             .then(reg => console.log('Service Worker 已註冊，範圍:', reg.scope))
