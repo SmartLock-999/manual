@@ -3,16 +3,12 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- PWA 相關設定 -->
     <meta name="theme-color" content="#3b67f2" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="manifest" href="manifest.json" />
-    
-    <!-- 網頁圖示 (Favicon) 改為 svg -->
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="icon.svg" />
-    
     <title>3D-PA位置標註</title>
     <style>
         :root {
@@ -63,6 +59,9 @@
         }
         .workspace {
             flex: 1;
+            position: relative;
+            min-width: 0;
+            background: #dfe7f1;
         }
         .sidebar-toggle {
             position: absolute;
@@ -247,11 +246,6 @@
             line-height: 1.4;
             color: #7b8798;
             margin: 2px 0 0;
-        }
-        .workspace {
-            position: relative;
-            min-width: 0;
-            background: #dfe7f1;
         }
         .topbar {
             position: absolute;
@@ -483,9 +477,6 @@
             opacity: 1;
             transform: translateY(0);
         }
-        .legend {
-            display: none;
-        }
         .status-bar {
             font-size: 11px;
             color: var(--muted);
@@ -493,15 +484,6 @@
             border-top: 1px solid var(--line);
             padding-top: 8px;
             text-align: center;
-        }
-        .drag-hint {
-            display: inline-block;
-            background: #3b67f2;
-            color: #fff;
-            border-radius: 4px;
-            padding: 0 6px;
-            font-size: 10px;
-            margin-left: 4px;
         }
         @media(max-width:780px) {
             #app {
@@ -1061,6 +1043,21 @@
             mainBuilding.userData.width = 14;
             mainBuilding.userData.shape = 'box';
 
+            annotations = [];
+            annotationObjects = [];
+            relations = [];
+            relationGroup.clear();
+            selectedAnnotationIndex = -1;
+            selectedForLink = [];
+            selectedRelationIds = [];
+            nextRelationId = 1;
+            
+            updateMultiLinkUI();
+            $('deleteSelectedAnnotationBtn').disabled = true;
+            $('editAnnotationBtn').disabled = true;
+            $('deleteAllRelationsBtn').disabled = true;
+            $('deleteSelectedRelationsBtn').disabled = true;
+
             rebuildAnnotations();
             updateXray();
             controls.target.set(0, 0, 0);
@@ -1070,6 +1067,7 @@
             const scaleInput = $('scaleInput');
             scaleInput.disabled = true;
             scaleInput.value = 1;
+            autoSave();
         }
 
         function addNewBuilding() {
@@ -2219,6 +2217,9 @@
             $('deleteSelectedRelationsBtn').disabled = selectedRelationIds.length === 0;
         }
 
+        // ===== 修正：調整建築樓層 =====
+        // 增加樓層：完全不影響標註
+        // 減少樓層：先檢測該樓層上的標註點，顯示清單提醒用戶，確認後才執行刪除
         function adjustSelectedBuilding(floorDelta = 0, basementDelta = 0) {
             if (selectedBuildings.length === 0) {
                 alert('請先選取要調整的建築。');
@@ -2226,12 +2227,225 @@
             }
             
             const target = selectedBuildings[0];
+            const targetId = target.userData.buildingId;
+            const currentFloors = target === mainBuilding ? 
+                (parseInt($('floors').value) || 0) : 
+                (target.userData.floors || 0);
+            const currentBasements = target === mainBuilding ?
+                (parseInt($('basements').value) || 0) :
+                (target.userData.basements || 0);
             
+            const newFloors = Math.max(0, currentFloors + floorDelta);
+            const newBasements = Math.max(0, currentBasements + basementDelta);
+            
+            // ===== 情況1: 增加樓層（完全不做任何刪除） =====
+            if (floorDelta > 0 || basementDelta > 0) {
+                if (target === mainBuilding) {
+                    $('floors').value = newFloors;
+                    $('basements').value = newBasements;
+                    
+                    const width = parseFloat($('width').value) || 14;
+                    const wallColor = $('wallColor').value;
+                    const glassColor = $('glassColor').value;
+                    const shape = target.userData.shape || 'box';
+                    
+                    const pos = mainBuilding.position.clone();
+                    const sc = mainBuilding.scale.clone();
+                    
+                    // 清除舊建築
+                    while (mainBuilding.children.length > 0) {
+                        mainBuilding.remove(mainBuilding.children[0]);
+                    }
+                    
+                    // 建立新建築
+                    const newBuilding = createBuilding(newFloors, newBasements, width, wallColor, glassColor, true, shape);
+                    while (newBuilding.children.length > 0) {
+                        const child = newBuilding.children[0];
+                        newBuilding.remove(child);
+                        mainBuilding.add(child);
+                    }
+                    mainBuilding.userData.floors = newFloors;
+                    mainBuilding.userData.basements = newBasements;
+                    mainBuilding.userData.width = width;
+                    mainBuilding.userData.shape = shape;
+                    mainBuilding.position.copy(pos);
+                    mainBuilding.scale.copy(sc);
+                    
+                    // 更新標註點的 buildingId 為 0（主建築）
+                    annotations.forEach(a => {
+                        if (a.buildingId === targetId) {
+                            a.buildingId = 0;
+                        }
+                    });
+                    
+                    // 完全重新建立標註點
+                    rebuildAnnotations();
+                    updateXray();
+                    selectBuildings([mainBuilding]);
+                    $('analysisStatus').textContent = `主建築已增加樓層：${newFloors} 層，地下 ${newBasements} 層 (${shape})，標註點全部保留`;
+                    autoSave();
+                    return;
+                } else {
+                    // 新增建築增加樓層
+                    const old = target;
+                    const oldData = old.userData;
+                    if (!oldData || !oldData.isAddition) {
+                        alert('請選取新增的建物進行調整。');
+                        return;
+                    }
+                    
+                    const pos = old.position.clone();
+                    const sc = old.scale.clone();
+                    const shape = oldData.shape || 'box';
+                    const width = oldData.width || 14;
+                    const depth = oldData.depth || null;
+                    const prompt = `${newFloors} 樓 (${shape})`;
+                    const oldId = oldData.buildingId;
+                    
+                    const idx = additionsGroup.children.indexOf(old);
+                    if (idx >= 0) {
+                        const pIdx = additionPrompts.indexOf(oldData.prompt);
+                        if (pIdx >= 0) additionPrompts.splice(pIdx, 1);
+                        additionsGroup.remove(old);
+                    }
+                    
+                    const wallColor = $('wallColor').value;
+                    const glassColor = $('glassColor').value;
+                    
+                    const group = createBuilding(newFloors, newBasements, width, wallColor, glassColor, false, shape, depth);
+                    const id = nextBuildingId++;
+                    group.userData.buildingId = id;
+                    group.userData.isAddition = true;
+                    group.userData.floors = newFloors;
+                    group.userData.basements = newBasements;
+                    group.userData.width = width;
+                    group.userData.depth = depth;
+                    group.userData.shape = shape;
+                    group.userData.prompt = prompt;
+                    group.position.copy(pos);
+                    group.scale.copy(sc);
+                    group.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true } });
+                    additionsGroup.add(group);
+                    additionPrompts.push(prompt);
+                    
+                    // 更新現有標註點的 buildingId 到新建築
+                    annotations.forEach(a => {
+                        if (a.buildingId === oldId) {
+                            a.buildingId = id;
+                        }
+                    });
+                    
+                    rebuildAnnotations();
+                    updateXray();
+                    selectBuildings([group]);
+                    $('analysisStatus').textContent = `建築已增加樓層：${newFloors} 層，地下 ${newBasements} 層 (${shape})，標註點全部保留`;
+                    autoSave();
+                    return;
+                }
+            }
+            
+            // ===== 情況2: 減少樓層 =====
+            // 步驟1: 收集所有將被影響的標註點（根據 floor 屬性）
+            const affectedAnnotations = [];
+            const isDecreasingFloors = floorDelta < 0;
+            const isDecreasingBasements = basementDelta < 0;
+            
+            // 複製一份 annotations 的索引，避免在遍歷時修改
+            const annotationsCopy = [...annotations];
+            target.updateWorldMatrix(true, false);
+            const ANNOTATION_HEIGHT_TOL = 0.05;
+            annotationsCopy.forEach((data, idx) => {
+                // 只處理屬於該建築的標註點
+                if (data.buildingId !== targetId) return;
+
+                if (data.floor && data.floor !== 'surface') {
+                    // 檢查地上樓層（依標註點指定的樓層代號）
+                    if (isDecreasingFloors && typeof data.floor === 'string' && !data.floor.startsWith('b')) {
+                        const floorNum = parseInt(data.floor, 10);
+                        if (!isNaN(floorNum) && floorNum > newFloors) {
+                            affectedAnnotations.push({ index: idx, text: data.text || '未命名', floor: data.floor });
+                        }
+                    }
+
+                    // 檢查地下室樓層（依標註點指定的樓層代號）
+                    if (isDecreasingBasements && typeof data.floor === 'string' && data.floor.startsWith('b')) {
+                        const bNum = parseInt(data.floor.slice(1), 10);
+                        if (!isNaN(bNum) && bNum > newBasements) {
+                            affectedAnnotations.push({ index: idx, text: data.text || '未命名', floor: data.floor });
+                        }
+                    }
+                } else {
+                    // 直接點選建物表面產生的標註點（未指定樓層代號），依實際高度判斷是否超出縮減後的建物範圍
+                    const localPos = target.worldToLocal(new THREE.Vector3(...data.position));
+                    if (isDecreasingFloors && localPos.y > newFloors * STORY_HEIGHT + ANNOTATION_HEIGHT_TOL) {
+                        affectedAnnotations.push({ index: idx, text: data.text || '未命名', floor: '表面點（超出樓層）' });
+                    } else if (isDecreasingBasements && localPos.y < -newBasements * STORY_HEIGHT - ANNOTATION_HEIGHT_TOL) {
+                        affectedAnnotations.push({ index: idx, text: data.text || '未命名', floor: '表面點（超出地下室）' });
+                    }
+                }
+            });
+            
+            // 步驟2: 如果有受影響的標註點，顯示提醒讓用戶確認
+            if (affectedAnnotations.length > 0) {
+                const action = floorDelta < 0 ? `刪除 ${Math.abs(floorDelta)} 層樓` : '';
+                const action2 = basementDelta < 0 ? `刪除 ${Math.abs(basementDelta)} 層地下室` : '';
+                const combinedAction = [action, action2].filter(Boolean).join(' 和 ');
+                const names = affectedAnnotations.map(a => `  • 「${a.text}」(樓層 ${a.floor})`).join('\n');
+                if (!confirm(`⚠️ 以下 ${affectedAnnotations.length} 個標註點位於被刪除的樓層內，將會被移除：\n\n${names}\n\n確定要繼續執行「${combinedAction}」嗎？`)) {
+                    return;
+                }
+            }
+            
+            // 步驟3: 從後往前刪除受影響的標註點（避免索引偏移）
+            // 注意：必須先從 annotationObjects 和 annotations 中移除
+            if (affectedAnnotations.length > 0) {
+                // 按索引從大到小排序
+                const indicesToRemove = affectedAnnotations.map(a => a.index).sort((a, b) => b - a);
+                indicesToRemove.forEach(idx => {
+                    // 先從場景中移除 CSS2DObject
+                    if (annotationObjects[idx] && annotationObjects[idx].parent) {
+                        annotationObjects[idx].parent.remove(annotationObjects[idx]);
+                    }
+                    // 從陣列中移除
+                    annotationObjects.splice(idx, 1);
+                    annotations.splice(idx, 1);
+                    
+                    // 處理 relations 中的索引
+                    const toRemoveRel = [];
+                    relations.forEach((r, ridx) => {
+                        if (r.from === idx || r.to === idx) {
+                            toRemoveRel.push(ridx);
+                        }
+                    });
+                    toRemoveRel.sort((a, b) => b - a).forEach(ridx => relations.splice(ridx, 1));
+                    
+                    // 更新 relations 中其他項目的索引
+                    relations = relations.map(r => {
+                        let from = r.from;
+                        let to = r.to;
+                        if (from > idx) from--;
+                        if (to > idx) to--;
+                        return { id: r.id, from, to, order: r.order };
+                    });
+                    
+                    // 更新選取狀態
+                    if (selectedAnnotationIndex === idx) {
+                        selectedAnnotationIndex = -1;
+                        $('deleteSelectedAnnotationBtn').disabled = true;
+                        $('editAnnotationBtn').disabled = true;
+                    } else if (selectedAnnotationIndex > idx) {
+                        selectedAnnotationIndex--;
+                    }
+                    
+                    selectedForLink = selectedForLink.filter(i => i !== idx).map(i => i > idx ? i - 1 : i);
+                });
+                
+                // 清理 selectedRelationIds
+                selectedRelationIds = selectedRelationIds.filter(id => relations.some(r => r.id === id));
+            }
+            
+            // 步驟4: 重建建築模型
             if (target === mainBuilding) {
-                const currentFloors = parseInt($('floors').value) || 0;
-                const currentBasements = parseInt($('basements').value) || 0;
-                const newFloors = Math.max(0, currentFloors + floorDelta);
-                const newBasements = Math.max(0, currentBasements + basementDelta);
                 $('floors').value = newFloors;
                 $('basements').value = newBasements;
                 
@@ -2252,6 +2466,26 @@
                     mainBuilding.userData.basements = 0;
                     mainBuilding.position.copy(pos);
                     mainBuilding.scale.copy(sc);
+                    
+                    // 檢查該建築是否還有殘留標註點
+                    const remaining = [];
+                    annotations.forEach((data, idx) => {
+                        if (data.buildingId === targetId) remaining.push(idx);
+                    });
+                    if (remaining.length > 0) {
+                        const names = remaining.map(i => annotations[i]?.text || '未命名').join('、');
+                        if (!confirm(`⚠️ 該建築上還有 ${remaining.length} 個標註點，將會一併移除：\n${names}\n\n確定要繼續嗎？`)) {
+                            return;
+                        }
+                        remaining.sort((a, b) => b - a).forEach(idx => {
+                            if (annotationObjects[idx] && annotationObjects[idx].parent) {
+                                annotationObjects[idx].parent.remove(annotationObjects[idx]);
+                            }
+                            annotationObjects.splice(idx, 1);
+                            annotations.splice(idx, 1);
+                        });
+                    }
+                    
                     rebuildAnnotations();
                     updateXray();
                     selectBuildings([]);
@@ -2273,6 +2507,13 @@
                 mainBuilding.position.copy(pos);
                 mainBuilding.scale.copy(sc);
                 
+                // 確保剩餘標註點的 buildingId 正確
+                annotations.forEach(a => {
+                    if (a.buildingId === targetId) {
+                        a.buildingId = 0;
+                    }
+                });
+                
                 rebuildAnnotations();
                 updateXray();
                 if (newFloors > 0 || newBasements > 0) {
@@ -2285,6 +2526,7 @@
                 return;
             }
             
+            // 處理新增建築的減少樓層
             const old = target;
             const oldData = old.userData;
             if (!oldData || !oldData.isAddition) {
@@ -2292,15 +2534,30 @@
                 return;
             }
             
-            const newFloors = Math.max(0, (oldData.floors || 3) + floorDelta);
-            const newBasements = Math.max(0, (oldData.basements || 0) + basementDelta);
-            
             if (newFloors === 0 && newBasements === 0) {
+                const allAnnotations = annotations.filter(a => a.buildingId === targetId);
+                if (allAnnotations.length > 0) {
+                    const names = allAnnotations.map(a => a.text || '未命名').join('、');
+                    if (!confirm(`⚠️ 該建築上有 ${allAnnotations.length} 個標註點，將會一併移除：\n${names}\n\n確定要繼續嗎？`)) {
+                        return;
+                    }
+                }
                 const idx = additionsGroup.children.indexOf(old);
                 if (idx >= 0) {
                     const pIdx = additionPrompts.indexOf(oldData.prompt);
                     if (pIdx >= 0) additionPrompts.splice(pIdx, 1);
-                    deleteBuildingAnnotations(old);
+                    // 刪除建築及其所有標註
+                    const allIndices = [];
+                    annotations.forEach((data, idx) => {
+                        if (data.buildingId === targetId) allIndices.push(idx);
+                    });
+                    allIndices.sort((a, b) => b - a).forEach(idx => {
+                        if (annotationObjects[idx] && annotationObjects[idx].parent) {
+                            annotationObjects[idx].parent.remove(annotationObjects[idx]);
+                        }
+                        annotationObjects.splice(idx, 1);
+                        annotations.splice(idx, 1);
+                    });
                     additionsGroup.remove(old);
                     selectBuildings([]);
                     $('analysisStatus').textContent = '建築已完全移除 (無樓層)';
@@ -2315,8 +2572,7 @@
             const width = oldData.width || 14;
             const depth = oldData.depth || null;
             const prompt = `${newFloors} 樓 (${shape})`;
-            
-            deleteBuildingAnnotations(old);
+            const oldId = oldData.buildingId;
             
             const idx = additionsGroup.children.indexOf(old);
             if (idx >= 0) {
@@ -2344,6 +2600,13 @@
             additionsGroup.add(group);
             additionPrompts.push(prompt);
             
+            // 更新剩餘標註點的 buildingId 到新建築
+            annotations.forEach(a => {
+                if (a.buildingId === oldId) {
+                    a.buildingId = id;
+                }
+            });
+            
             rebuildAnnotations();
             updateXray();
             selectBuildings([group]);
@@ -2361,6 +2624,87 @@
                     const wallColor = $('wallColor').value;
                     const glassColor = $('glassColor').value;
                     const shape = building.userData.shape || 'box';
+
+                    const targetId = building.userData.buildingId || 0;
+                    const currentFloors = building.userData.floors || 0;
+                    const currentBasements = building.userData.basements || 0;
+
+                    // 檢查因樓層／地下室減少而受影響的標註點，並跳出提醒
+                    if (floors < currentFloors || basements < currentBasements) {
+                        const affectedAnnotations = [];
+                        building.updateWorldMatrix(true, false);
+                        const ANNOTATION_HEIGHT_TOL = 0.05;
+                        annotations.forEach((data, idx) => {
+                            if (data.buildingId !== targetId) return;
+
+                            if (data.floor && data.floor !== 'surface') {
+                                if (floors < currentFloors && typeof data.floor === 'string' && !data.floor.startsWith('b')) {
+                                    const floorNum = parseInt(data.floor, 10);
+                                    if (!isNaN(floorNum) && floorNum > floors) {
+                                        affectedAnnotations.push({ index: idx, text: data.text || '未命名', floor: data.floor });
+                                    }
+                                }
+                                if (basements < currentBasements && typeof data.floor === 'string' && data.floor.startsWith('b')) {
+                                    const bNum = parseInt(data.floor.slice(1), 10);
+                                    if (!isNaN(bNum) && bNum > basements) {
+                                        affectedAnnotations.push({ index: idx, text: data.text || '未命名', floor: data.floor });
+                                    }
+                                }
+                            } else {
+                                // 直接點選建物表面產生的標註點（未指定樓層代號），依實際高度判斷
+                                const localPos = building.worldToLocal(new THREE.Vector3(...data.position));
+                                if (floors < currentFloors && localPos.y > floors * STORY_HEIGHT + ANNOTATION_HEIGHT_TOL) {
+                                    affectedAnnotations.push({ index: idx, text: data.text || '未命名', floor: '表面點（超出樓層）' });
+                                } else if (basements < currentBasements && localPos.y < -basements * STORY_HEIGHT - ANNOTATION_HEIGHT_TOL) {
+                                    affectedAnnotations.push({ index: idx, text: data.text || '未命名', floor: '表面點（超出地下室）' });
+                                }
+                            }
+                        });
+
+                        if (affectedAnnotations.length > 0) {
+                            const action = floors < currentFloors ? `樓層減至 ${floors} 層` : '';
+                            const action2 = basements < currentBasements ? `地下室減至 ${basements} 層` : '';
+                            const combinedAction = [action, action2].filter(Boolean).join(' 和 ');
+                            const names = affectedAnnotations.map(a => `  • 「${a.text}」(樓層 ${a.floor})`).join('\n');
+                            if (!confirm(`⚠️ 以下 ${affectedAnnotations.length} 個標註點位於被刪除的樓層內，將會被移除：\n\n${names}\n\n確定要繼續執行「${combinedAction}」嗎？`)) {
+                                return;
+                            }
+
+                            const indicesToRemove = affectedAnnotations.map(a => a.index).sort((a, b) => b - a);
+                            indicesToRemove.forEach(idx => {
+                                if (annotationObjects[idx] && annotationObjects[idx].parent) {
+                                    annotationObjects[idx].parent.remove(annotationObjects[idx]);
+                                }
+                                annotationObjects.splice(idx, 1);
+                                annotations.splice(idx, 1);
+
+                                const toRemoveRel = [];
+                                relations.forEach((r, ridx) => {
+                                    if (r.from === idx || r.to === idx) toRemoveRel.push(ridx);
+                                });
+                                toRemoveRel.sort((a, b) => b - a).forEach(ridx => relations.splice(ridx, 1));
+
+                                relations = relations.map(r => {
+                                    let from = r.from;
+                                    let to = r.to;
+                                    if (from > idx) from--;
+                                    if (to > idx) to--;
+                                    return { id: r.id, from, to, order: r.order };
+                                });
+
+                                if (selectedAnnotationIndex === idx) {
+                                    selectedAnnotationIndex = -1;
+                                    $('deleteSelectedAnnotationBtn').disabled = true;
+                                    $('editAnnotationBtn').disabled = true;
+                                } else if (selectedAnnotationIndex > idx) {
+                                    selectedAnnotationIndex--;
+                                }
+
+                                selectedForLink = selectedForLink.filter(i => i !== idx).map(i => i > idx ? i - 1 : i);
+                            });
+                            selectedRelationIds = selectedRelationIds.filter(id => relations.some(r => r.id === id));
+                        }
+                    }
                     
                     const pos = mainBuilding.position.clone();
                     const sc = mainBuilding.scale.clone();
@@ -2372,6 +2716,7 @@
                         mainBuilding.userData.basements = 0;
                         mainBuilding.position.copy(pos);
                         mainBuilding.scale.copy(sc);
+                        rebuildAnnotations();
                         return;
                     }
                     
@@ -2387,6 +2732,8 @@
                     mainBuilding.userData.shape = shape;
                     mainBuilding.position.copy(pos);
                     mainBuilding.scale.copy(sc);
+                    
+                    rebuildAnnotations();
                 } else {
                     building.traverse(o => {
                         if (o.isMesh && !o.userData.floor && o.material.name !== 'floor' && !o.userData.isBasement)
@@ -3115,30 +3462,21 @@
             if (e.propertyName === 'width' || e.propertyName === 'flex-basis' || e.propertyName === 'max-height') resize();
         });
 
-        // === 📱 行動裝置返回鍵處理 (修正版) ===
-        // 關鍵：在頁面載入時 push 一個歷史狀態，讓返回鍵能觸發 popstate
-        // 並且用 replaceState 確保不會產生多餘的歷史條目
+        // === 📱 行動裝置返回鍵處理 ===
         (function initBackButtonHandler() {
-            // 先將當前歷史記錄替換為一個可控的狀態
             history.replaceState({ page: 'main' }, '', location.href);
-            
-            // 然後 push 一個新狀態，這樣返回時就會觸發 popstate
-            // 這個 push 會讓歷史記錄增加一筆，使用者按返回時會回到 push 之前的狀態
             history.pushState({ page: 'main' }, '', location.href);
 
             let backCount = 0;
             let backTimer = null;
 
             window.addEventListener('popstate', (e) => {
-                // 如果側邊欄是展開的，優先收合側邊欄
                 if (!sidebarCollapsed) {
                     setSidebarCollapsed(true);
-                    // 阻止真正的返回行為，重新 push 一個狀態保持歷史記錄不變
                     history.pushState({ page: 'main' }, '', location.href);
                     return;
                 }
 
-                // 側邊欄已收合，執行離開邏輯
                 backCount++;
                 if (backTimer) clearTimeout(backTimer);
 
@@ -3148,27 +3486,19 @@
                         backCount = 0;
                         $('analysisStatus').textContent = '就緒';
                     }, 3000);
-                    // 阻止真正返回，重新 push 狀態
                     history.pushState({ page: 'main' }, '', location.href);
                     return;
                 }
 
                 if (backCount >= 2) {
-                    // 真的離開：清除計時器，讓瀏覽器執行真正的返回
                     clearTimeout(backTimer);
                     backCount = 0;
-                    // 移除 popstate 監聽器避免干擾，然後執行返回
-                    // 但注意：此時如果直接 history.back() 會再次觸發 popstate
-                    // 所以用 setTimeout 讓它在下一個事件循環執行
                     setTimeout(() => {
-                        // 使用 history.go(-2) 跳過我們 push 的兩個歷史記錄
-                        // 但更好的方式是讓瀏覽器自然返回
                         history.back();
                     }, 10);
                 }
             });
 
-            // 在頁面卸載前清理
             window.addEventListener('beforeunload', () => {
                 if (backTimer) clearTimeout(backTimer);
             });
@@ -3490,7 +3820,7 @@
 
         window.addEventListener('beforeunload', () => { autoSave(); });
 
-        console.log('Forma 已啟動，版本 6.0 — 返回鍵修正：需按兩次返回才離開');
+        console.log('Forma 已啟動，版本 6.5 — 減少樓層時會正確檢測並刪除該樓層標註點，確保不留殘留標註');
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
