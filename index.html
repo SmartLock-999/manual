@@ -3148,6 +3148,48 @@
             if (e.propertyName === 'width' || e.propertyName === 'flex-basis' || e.propertyName === 'max-height') resize();
         });
 
+        // === 📱 行動裝置返回鍵處理：按返回先收合側邊欄，再按才離開 ===
+        let backButtonCount = 0;
+        let backButtonTimer = null;
+
+        window.addEventListener('popstate', (e) => {
+            // 如果側邊欄是展開的，優先收合側邊欄
+            if (!sidebarCollapsed) {
+                setSidebarCollapsed(true);
+                // 阻止真正的返回行為，pushState 保持歷史記錄不變
+                history.pushState(null, '', location.href);
+                return;
+            }
+
+            // 側邊欄已收合，執行離開邏輯
+            // 使用計數器讓第一次按返回不離開，第二次才離開
+            backButtonCount++;
+            if (backButtonTimer) clearTimeout(backButtonTimer);
+            
+            if (backButtonCount === 1) {
+                $('analysisStatus').textContent = '再按一次返回鍵離開網頁';
+                backButtonTimer = setTimeout(() => {
+                    backButtonCount = 0;
+                    $('analysisStatus').textContent = '就緒';
+                }, 3000);
+                // 阻止真正返回，保留在頁面
+                history.pushState(null, '', location.href);
+                return;
+            }
+            
+            if (backButtonCount >= 2) {
+                // 真的離開：清除計時器，並讓瀏覽器執行真正的返回
+                clearTimeout(backButtonTimer);
+                backButtonCount = 0;
+                // 讓瀏覽器真正離開
+                history.back();
+            }
+        });
+
+        // 初始化歷史記錄，讓 popstate 能夠被觸發
+        // 使用 replaceState 取代當前記錄，確保沒有多餘的歷史條目
+        history.replaceState(null, '', location.href);
+
         const scaleInput = $('scaleInput');
         scaleInput.addEventListener('input', (e) => {
             if (selectedBuildings.length === 0) return;
