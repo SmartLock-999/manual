@@ -272,6 +272,28 @@
             color: var(--muted);
             margin-left: 9px;
         }
+        .filename-bar {
+            position: absolute;
+            left: 18px;
+            top: 72px;
+            z-index: 5;
+            max-width: min(60%, 420px);
+            background: #fffc;
+            border: 1px solid #ffffff99;
+            backdrop-filter: blur(12px);
+            border-radius: 8px;
+            padding: 5px 12px;
+            box-shadow: 0 5px 22px #34405914;
+            overflow: hidden;
+        }
+        .filename-bar strong {
+            font-size: 13px;
+            color: var(--ink);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
         .search-block {
             display: flex;
             align-items: center;
@@ -529,6 +551,16 @@
             .title-block span {
                 display: none;
             }
+            .filename-bar {
+                top: 62px;
+                left: 10px;
+                right: 10px;
+                max-width: none;
+                padding: 4px 10px;
+            }
+            .filename-bar strong {
+                font-size: 12px;
+            }
             .tools button {
                 padding: 6px 9px;
             }
@@ -665,7 +697,6 @@
                             </select>
                             <span class="hint">選擇樓層後，可點擊該樓層平面任意處新增標註 (以目前選取的建物為準，預設主建築)</span>
                         </div>
-                        <div class="field"><label>標註深度</label><input id="annotationDepth" type="range" min="0" max="100" value="0" /><span id="depthValue" class="hint">0%：表層</span></div>
                         <div class="row">
                             <div class="field"><label>連線顏色</label><input id="lineColor" type="color" value="#ff8b36" /></div>
                             <div class="field"><label>連線粗細</label><input id="lineWidth" type="range" min="1" max="6" value="3" step="0.5" /><span id="lineWidthValue" class="hint">3</span></div>
@@ -745,18 +776,20 @@
         <section class="workspace">
             <button id="sidebarToggleBtn" class="sidebar-toggle" type="button" title="收合功能欄" aria-label="收合功能欄">‹</button>
             <header class="topbar">
-                <div class="title-block"><strong id="projectFileName">3D 建築視圖</strong><span>拖曳旋轉 · 滾輪縮放</span></div>
+                <div class="title-block"><span>拖曳旋轉 · 滾輪縮放</span></div>
                 <div class="search-block">
                     <input id="annotationSearchInput" type="text" placeholder="🔍 搜尋標註點…" list="annotationSearchList" autocomplete="off" />
                     <datalist id="annotationSearchList"></datalist>
                     <button id="annotationSearchBtn" title="搜尋並跳至標註點">跳至</button>
                 </div>
                 <div class="tools">
+                    <button id="topUndoBtn" title="復原上一步"><span class="icon">↺</span><span class="label">復原</span></button>
                     <button id="topMoveBtn" title="移動"><span class="icon">↕</span><span class="label">移動</span></button>
                     <button id="topAnnotationBtn" title="標示"><span class="icon">＋</span><span class="label">標示</span></button>
                     <button id="topDeleteBtn" title="刪除"><span class="icon">🗑</span><span class="label">刪除</span></button>
                 </div>
             </header>
+            <div class="filename-bar"><strong id="projectFileName">3D 建築視圖</strong></div>
             <div id="canvas" class="canvas-wrap"></div>
             <div id="mode" class="mode">點擊建築表面或地面任意處以放置標示</div>
         </section>
@@ -965,19 +998,25 @@
                 }
 
                 const floorY = (f + 1) * h - 0.18;
+                const floorMatForThis = f < 0 ? floorMat.clone() : floorMat;
+                let floorMesh;
                 if (isCylinder) {
-                    mesh(new THREE.CylinderGeometry(w/2 - 0.12, w/2 - 0.12, 0.18, 24), floorMat, 0, floorY, 0, group);
+                    floorMesh = mesh(new THREE.CylinderGeometry(w/2 - 0.12, w/2 - 0.12, 0.18, 24), floorMatForThis, 0, floorY, 0, group);
                 } else {
-                    mesh(new THREE.BoxGeometry(w - 0.25, 0.18, d - 0.25), floorMat, 0, floorY, 0, group);
+                    floorMesh = mesh(new THREE.BoxGeometry(w - 0.25, 0.18, d - 0.25), floorMatForThis, 0, floorY, 0, group);
                 }
+                if (f < 0) floorMesh.userData.isBasementFloor = true;
 
                 if (f === -basements && basements > 0) {
                     const bottomY = -basements * h + 0.18;
+                    const bottomFloorMat = floorMat.clone();
+                    let bottomFloorMesh;
                     if (isCylinder) {
-                        mesh(new THREE.CylinderGeometry(w/2 - 0.12, w/2 - 0.12, 0.18, 24), floorMat, 0, bottomY, 0, group);
+                        bottomFloorMesh = mesh(new THREE.CylinderGeometry(w/2 - 0.12, w/2 - 0.12, 0.18, 24), bottomFloorMat, 0, bottomY, 0, group);
                     } else {
-                        mesh(new THREE.BoxGeometry(w - 0.25, 0.18, d - 0.25), floorMat, 0, bottomY, 0, group);
+                        bottomFloorMesh = mesh(new THREE.BoxGeometry(w - 0.25, 0.18, d - 0.25), bottomFloorMat, 0, bottomY, 0, group);
                     }
+                    bottomFloorMesh.userData.isBasementFloor = true;
                 }
 
                 if (f >= 0 && floors > 0 && !isCylinder) {
@@ -1004,11 +1043,14 @@
 
             if (basements > 0) {
                 const bottomY = -basements * h + 0.18;
+                const outerBottomFloorMat = floorMat.clone();
+                let outerBottomFloorMesh;
                 if (isCylinder) {
-                    mesh(new THREE.CylinderGeometry(w/2 - 0.12, w/2 - 0.12, 0.18, 24), floorMat, 0, bottomY, 0, group);
+                    outerBottomFloorMesh = mesh(new THREE.CylinderGeometry(w/2 - 0.12, w/2 - 0.12, 0.18, 24), outerBottomFloorMat, 0, bottomY, 0, group);
                 } else {
-                    mesh(new THREE.BoxGeometry(w - 0.25, 0.18, d - 0.25), floorMat, 0, bottomY, 0, group);
+                    outerBottomFloorMesh = mesh(new THREE.BoxGeometry(w - 0.25, 0.18, d - 0.25), outerBottomFloorMat, 0, bottomY, 0, group);
                 }
+                outerBottomFloorMesh.userData.isBasementFloor = true;
             }
 
             const top = floors * h;
@@ -1105,24 +1147,32 @@
             onlyBasement = !onlyBasement;
             updateXray();
             $('perspectiveBtn').textContent = `透視樓板：${xrayMode?'開':'關'}`;
-            $('analysisStatus').textContent = onlyBasement ? '只顯示地下室層 (地上樓層與地板隱藏)' : '顯示完整建築';
+            $('analysisStatus').textContent = onlyBasement ? '只顯示地下室地板 (地上樓層隱藏，地下室空間透明顯示)' : '顯示完整建築';
             
             [mainBuilding, additionsGroup].forEach(group => {
                 group.traverse(o => {
                     if (!o.isMesh) return;
                     const isFloor = o.material.name === 'floor' || o.userData.floor;
                     const isBasement = o.userData.isBasement || false;
+                    const isBasementFloor = o.userData.isBasementFloor || false;
                     
                     if (onlyBasement) {
-                        if (!isBasement) {
-                            o.material.transparent = true;
-                            o.material.opacity = 0.0;
-                            o.material.depthWrite = false;
-                            o.material.needsUpdate = true;
-                        } else {
+                        if (isBasementFloor) {
+                            // 僅顯示地下室地板：實體不透明
                             o.material.transparent = false;
                             o.material.opacity = 1;
                             o.material.depthWrite = true;
+                            o.material.needsUpdate = true;
+                        } else if (isBasement) {
+                            // 地下室空間（牆體）：透明顯示，不顯示黑色實體
+                            o.material.transparent = true;
+                            o.material.opacity = 0.12;
+                            o.material.depthWrite = false;
+                            o.material.needsUpdate = true;
+                        } else {
+                            o.material.transparent = true;
+                            o.material.opacity = 0.0;
+                            o.material.depthWrite = false;
                             o.material.needsUpdate = true;
                         }
                     } else {
@@ -1296,6 +1346,135 @@
                 if (child.userData.buildingId === id) return child;
             }
             return null;
+        }
+
+        const BUILDING_LONG_PRESS_MS = 480;
+        const BUILDING_MOVE_THRESHOLD = 8;
+        const BUILDING_RESIZE_SENSITIVITY = 150;
+        let isResizingBuilding = false;
+        let buildingResizeTarget = null;
+        let buildingResizeStartX = 0;
+        let buildingResizeStartY = 0;
+        let buildingResizeStartScaleX = 1;
+        let buildingResizeStartScaleY = 1;
+
+        function refreshBuildingVisuals(building) {
+            selectionBoxes.forEach(box => scene.remove(box));
+            selectionBoxes = [];
+            selectedBuildings.forEach(g => {
+                const box = new THREE.BoxHelper(g, '#ff8b36');
+                scene.add(box);
+                selectionBoxes.push(box);
+            });
+            annotations.forEach((data, idx) => {
+                const obj = annotationObjects[idx];
+                if (obj && obj.parent === building) {
+                    const worldPos = obj.position.clone();
+                    obj.parent.localToWorld(worldPos);
+                    data.position[0] = worldPos.x;
+                    data.position[1] = worldPos.y;
+                    data.position[2] = worldPos.z;
+                }
+            });
+            rebuildRelations();
+        }
+
+        function beginBuildingResize(building, startScreenX, startScreenY) {
+            isResizingBuilding = true;
+            buildingResizeTarget = building;
+            buildingResizeStartX = startScreenX;
+            buildingResizeStartY = startScreenY;
+            buildingResizeStartScaleX = building.scale.x;
+            buildingResizeStartScaleY = building.scale.y;
+            controls.enabled = false;
+            if (selectedBuildings[0] !== building) selectBuildings([building]);
+            renderer.domElement.style.cursor = 'move';
+            $('mode').textContent = '長按拖曳：上下調整高度，左右調整寬深，放開完成';
+            $('mode').classList.add('show');
+            $('analysisStatus').textContent = `調整大小中…（${building === mainBuilding ? '主建築' : '新增建築'}）`;
+            if (navigator.vibrate) navigator.vibrate(15);
+        }
+
+        function updateBuildingResize(clientX, clientY) {
+            if (!isResizingBuilding || !buildingResizeTarget) return;
+            const dy = buildingResizeStartY - clientY;
+            const dx = clientX - buildingResizeStartX;
+            let sy = buildingResizeStartScaleY + dy / BUILDING_RESIZE_SENSITIVITY;
+            let sx = buildingResizeStartScaleX + dx / BUILDING_RESIZE_SENSITIVITY;
+            sy = Math.min(5, Math.max(0.1, sy));
+            sx = Math.min(5, Math.max(0.1, sx));
+            buildingResizeTarget.scale.set(sx, sy, sx);
+            if (selectedBuildings[0] === buildingResizeTarget && $('scaleInput')) {
+                $('scaleInput').value = sy.toFixed(2);
+            }
+            refreshBuildingVisuals(buildingResizeTarget);
+        }
+
+        function endBuildingResize() {
+            if (isResizingBuilding && buildingResizeTarget) {
+                $('analysisStatus').textContent = `已調整大小為 ${buildingResizeTarget.scale.x.toFixed(2)}（${buildingResizeTarget === mainBuilding ? '主建築' : '新增建築'}）`;
+                rebuildRelations();
+                autoSave();
+            }
+            isResizingBuilding = false;
+            buildingResizeTarget = null;
+            controls.enabled = true;
+            renderer.domElement.style.cursor = moveMode ? 'grab' : 'grab';
+            $('mode').classList.remove('show');
+        }
+
+        function attachBuildingLongPressResize() {
+            let pressTimer = null;
+            let pressCandidate = null;
+            let pressStartX = 0,
+                pressStartY = 0;
+            let cancelled = false;
+
+            function clearPress() {
+                if (pressTimer) { clearTimeout(pressTimer);
+                    pressTimer = null; }
+                pressCandidate = null;
+            }
+
+            renderer.domElement.addEventListener('pointerdown', (e) => {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                if (annotationMode || footprintMode || relationMode || multiLinkMode || lineSelectMode ||
+                    deleteMode || moveMode || selectionMode) return;
+                if (isDragging || isResizingBuilding || markerDragIndex !== -1) return;
+                const building = getBuildingFromRaycast(e);
+                if (!building) return;
+                pressCandidate = building;
+                pressStartX = e.clientX;
+                pressStartY = e.clientY;
+                cancelled = false;
+                pressTimer = setTimeout(() => {
+                    pressTimer = null;
+                    if (cancelled || !pressCandidate) return;
+                    beginBuildingResize(pressCandidate, pressStartX, pressStartY);
+                }, BUILDING_LONG_PRESS_MS);
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (isResizingBuilding) { updateBuildingResize(e.clientX, e.clientY); return; }
+                if (pressTimer && pressCandidate) {
+                    const dx = e.clientX - pressStartX,
+                        dy = e.clientY - pressStartY;
+                    if (Math.hypot(dx, dy) > BUILDING_MOVE_THRESHOLD) {
+                        cancelled = true;
+                        clearPress();
+                    }
+                }
+            });
+
+            window.addEventListener('pointerup', () => {
+                clearPress();
+                if (isResizingBuilding) endBuildingResize();
+            });
+
+            window.addEventListener('pointercancel', () => {
+                clearPress();
+                if (isResizingBuilding) endBuildingResize();
+            });
         }
 
         const MARKER_LONG_PRESS_MS = 480;
@@ -3124,11 +3303,45 @@
             return data;
         }
 
+        const UNDO_LIMIT = 30;
+        let undoStack = [];
+        let isRestoringUndo = false;
+
+        function updateUndoButtonState() {
+            const disabled = undoStack.length === 0;
+            if ($('topUndoBtn')) $('topUndoBtn').disabled = disabled;
+        }
+
         function autoSave() {
             try {
+                if (!isRestoringUndo) {
+                    const prev = localStorage.getItem(STORAGE_KEY);
+                    if (prev) {
+                        undoStack.push(prev);
+                        if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+                        updateUndoButtonState();
+                    }
+                }
                 const data = getProjectData();
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             } catch (e) { console.warn('自動儲存失敗', e); }
+        }
+
+        function undoLastAction() {
+            if (undoStack.length === 0) {
+                $('analysisStatus').textContent = '沒有可復原的動作';
+                return;
+            }
+            const prev = undoStack.pop();
+            updateUndoButtonState();
+            try {
+                const data = JSON.parse(prev);
+                isRestoringUndo = true;
+                loadProjectData(data);
+                localStorage.setItem(STORAGE_KEY, prev);
+                $('analysisStatus').textContent = '已復原上一步動作';
+            } catch (e) { console.warn('復原失敗', e); }
+            finally { isRestoringUndo = false; }
         }
 
         function loadProjectData(data) {
@@ -3354,6 +3567,8 @@
         $('moveBtn').onclick = toggleMoveMode;
         $('topMoveBtn').onclick = toggleMoveMode;
 
+        $('topUndoBtn').onclick = () => { undoLastAction(); };
+
         $('topDeleteBtn').onclick = () => {
             const next = !deleteMode;
             clearModes();
@@ -3426,7 +3641,6 @@
         $('basementDownBtn').onclick = () => adjustSelectedBuilding(0, -1);
         $('basementUpBtn').onclick = () => adjustSelectedBuilding(0, 1);
         $('applyAppearanceBtn').onclick = applySelectedAppearance;
-        $('annotationDepth').oninput = e => { $('depthValue').textContent = `${e.target.value}%：${e.target.value==0?'表層':'向內'}` };
         $('lineWidth').oninput = e => {
             $('lineWidthValue').textContent = e.target.value;
             rebuildRelations();
@@ -3817,10 +4031,12 @@
         $('deleteBuildingBtn').disabled = true;
         document.querySelector('[data-target="buildingConfig"]')?.classList.add('open');
         document.getElementById('buildingConfig')?.classList.add('open');
+        updateUndoButtonState();
+        attachBuildingLongPressResize();
 
         window.addEventListener('beforeunload', () => { autoSave(); });
 
-        console.log('Forma 已啟動，版本 6.5 — 減少樓層時會正確檢測並刪除該樓層標註點，確保不留殘留標註');
+        console.log('Forma 已啟動，版本 6.6 — 新增復原上一步、長按建物調整大小，並將檔名顯示移至功能欄下方');
 
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
