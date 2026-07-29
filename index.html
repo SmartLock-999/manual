@@ -507,6 +507,133 @@
             padding-top: 8px;
             text-align: center;
         }
+        .project-group-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+        .group-btn.active {
+            background: var(--blue);
+            color: #fff;
+        }
+        .group-btn.authed {
+            box-shadow: inset 0 0 0 1px #1f9d55;
+        }
+        .cloud-status-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 8px 10px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #f7f9fc;
+            font-size: 11px;
+            color: var(--muted);
+        }
+        .cloud-status-panel strong {
+            color: var(--ink);
+        }
+        .file-upload-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8px 5px;
+            cursor: pointer;
+        }
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(23, 32, 51, 0.45);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 30;
+        }
+        .modal-backdrop.hidden {
+            display: none;
+        }
+        .modal-card {
+            width: min(100%, 480px);
+            max-height: min(78dvh, 640px);
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--line);
+        }
+        .modal-header strong {
+            font-size: 15px;
+        }
+        .modal-header span {
+            display: block;
+            margin-top: 2px;
+            font-size: 11px;
+            color: var(--muted);
+        }
+        .modal-close {
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            font-size: 16px;
+        }
+        .modal-body {
+            padding: 14px 16px 16px;
+            overflow-y: auto;
+        }
+        .project-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 52dvh;
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+        .project-list-item {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 10px 12px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            text-align: left;
+        }
+        .project-list-item:hover {
+            border-color: var(--blue);
+            background: #f7faff;
+        }
+        .project-list-item.active {
+            border-color: var(--blue);
+            box-shadow: inset 0 0 0 1px #3b67f233;
+        }
+        .project-list-item strong {
+            font-size: 13px;
+            color: var(--ink);
+        }
+        .project-list-meta {
+            font-size: 11px;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+        .project-list-empty {
+            padding: 16px 12px;
+            border: 1px dashed var(--line);
+            border-radius: 12px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 12px;
+            background: #fafbfd;
+        }
         @media(max-width:780px) {
             #app {
                 flex-direction: column;
@@ -761,10 +888,25 @@
                 </div>
                 <div class="section-body" id="ioConfig">
                     <div class="section-body-inner">
+                        <div class="project-group-grid">
+                            <button id="groupBtn1" class="group-btn" data-group="第一組">第一組</button>
+                            <button id="groupBtn2" class="group-btn" data-group="第二組">第二組</button>
+                            <button id="groupBtn3" class="group-btn" data-group="第三組">第三組</button>
+                        </div>
+                        <div class="cloud-status-panel">
+                            <div id="cloudConnectionStatus"><strong>雲端資料庫：</strong>已連線</div>
+                            <div id="cloudGroupStatus"><strong>目前組別：</strong>尚未選擇</div>
+                            <div id="cloudFileStatus"><strong>目前檔案：</strong>本機未綁定雲端檔案</div>
+                        </div>
+                        <div class="actions">
+                            <button id="cloudSaveBtn" class="primary">儲存到雲端</button>
+                            <button id="cloudDeleteBtn" class="danger" disabled>刪除雲端檔案</button>
+                        </div>
                         <div class="actions">
                             <button id="exportBtn" class="secondary">下載 JSON</button>
-                            <label class="secondary" style="text-align:center;padding:8px 5px;cursor:pointer">載入 JSON<input id="importInput" type="file" accept="application/json" style="display:none;" /></label>
+                            <label class="secondary file-upload-label">上傳 JSON<input id="importInput" type="file" accept="application/json" style="display:none;" /></label>
                         </div>
+                        <p class="hint">點選任一組別會跳出視窗，顯示該組所有已儲存檔名；檢視不需登入，新增、儲存、刪除、上傳、下載則需輸入該組密碼。</p>
                         <button id="newProjectBtn" class="secondary full">🗂️ 開啟新檔</button>
                     </div>
                 </div>
@@ -795,6 +937,21 @@
         </section>
     </main>
 
+    <div id="groupModal" class="modal-backdrop hidden" aria-hidden="true">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <strong id="groupModalTitle">組別檔案</strong>
+                    <span>點擊檔名即可直接檢視內容</span>
+                </div>
+                <button id="groupModalCloseBtn" class="modal-close" type="button" aria-label="關閉">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="groupProjectList" class="project-list"></div>
+            </div>
+        </div>
+    </div>
+
     <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.164.1/build/three.module.js","three/addons/":"https://unpkg.com/three@0.164.1/examples/jsm/"}}</script>
     <script type="module">
         import * as THREE from 'three';
@@ -803,6 +960,12 @@
 
         const $ = id => document.getElementById(id),
             canvas = $('canvas');
+        const SUPABASE_URL = 'https://otdjrzpmtrojlcisoxeb.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90ZGpyenBtdHJvamxjaXNveGViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MjgzMzksImV4cCI6MjA4NjAwNDMzOX0.B_OUasemoz8E1UiRVT4zlkv5Yf7nVnOW0LZs0Wkp3Ik';
+        const SUPABASE_REST_URL = `${SUPABASE_URL}/rest/v1`;
+        const PROJECT_GROUPS = ['第一組', '第二組', '第三組'];
+        const GROUP_PASSWORDS = { 第一組: 'w5131', 第二組: 'w5132', 第三組: 'w5133' };
+        const GROUP_AUTH_TTL = 30 * 60 * 1000;
         const scene = new THREE.Scene();
         scene.background = new THREE.Color('#dfe7f1');
         scene.fog = new THREE.Fog('#dfe7f1', 200, 500);
@@ -920,7 +1083,7 @@
         let markerDragStartScreen = null;
         let markerDragStartWorldPos = null;
         let markerDragAxisMode = null;
-        let highlightedChain = { prevIndex: -1, nextIndex: -1, prevRelationId: null, nextRelationId: null, startIndex: -1 };
+        let highlightedChain = { sourceIndex: -1, incomingIndex: -1, outgoingIndices: [], relationIds: [], startIndex: -1 };
         const LINE_REFERENCE_DISTANCE = 40;
 
         let isDragging = false;
@@ -929,6 +1092,13 @@
         let dragStartPos = new THREE.Vector3();
 
         let nextBuildingId = 1;
+        let activeProjectGroup = '';
+        let currentCloudProjectId = null;
+        let currentCloudProjectGroup = '';
+        let currentCloudFileName = '';
+        let currentCloudUpdatedAt = '';
+        let groupProjectsCache = {};
+        const groupAuthState = Object.fromEntries(PROJECT_GROUPS.map(name => [name, 0]));
 
         const raycaster = new THREE.Raycaster(),
             pointer = new THREE.Vector2();
@@ -1074,6 +1244,9 @@
         }
 
         function generateMain() {
+            clearChainHighlight();
+            clearAllSceneAnnotations();
+            groundGroup.clear();
             while (mainBuilding.children.length > 0) {
                 mainBuilding.remove(mainBuilding.children[0]);
             }
@@ -1086,7 +1259,6 @@
             mainBuilding.userData.shape = 'box';
 
             annotations = [];
-            annotationObjects = [];
             relations = [];
             relationGroup.clear();
             selectedAnnotationIndex = -1;
@@ -1690,6 +1862,26 @@
             return current;
         }
 
+        function removeAnnotationObject(obj) {
+            if (!obj) return;
+            if (obj.parent) obj.parent.remove(obj);
+            if (obj.element?.remove) obj.element.remove();
+        }
+
+        function clearAllSceneAnnotations() {
+            const toRemove = [];
+            [mainBuilding, additionsGroup, groundGroup].forEach(root => {
+                root.traverse(obj => {
+                    if (obj instanceof CSS2DObject || obj.isCSS2DObject || obj.element?.classList?.contains('annotation')) {
+                        toRemove.push(obj);
+                    }
+                });
+            });
+            toRemove.forEach(removeAnnotationObject);
+            annotationObjects.forEach(removeAnnotationObject);
+            annotationObjects = [];
+        }
+
         function setRelationColor(group, hexColor) {
             if (group.userData.shaft) group.userData.shaft.material.color.setHex(hexColor);
             if (group.userData.head) group.userData.head.material.color.setHex(hexColor);
@@ -1707,7 +1899,7 @@
                     setRelationColor(g, isSelected ? 0xff2d55 : g.userData.origColorHex);
                 }
             });
-            highlightedChain = { prevIndex: -1, nextIndex: -1, prevRelationId: null, nextRelationId: null, startIndex: -1 };
+            highlightedChain = { sourceIndex: -1, incomingIndex: -1, outgoingIndices: [], relationIds: [], startIndex: -1 };
         }
 
         function updateChainHighlight(index) {
@@ -1715,35 +1907,43 @@
             if (index < 0 || !annotations[index]) return;
 
             const incomingRel = relations.find(r => r.to === index);
-            const outgoingRel = relations.find(r => r.from === index);
-            const prevIndex = incomingRel ? incomingRel.from : -1;
-            const nextIndex = outgoingRel ? outgoingRel.to : -1;
+            const outgoingRels = relations.filter(r => r.from === index);
+            const incomingIndex = incomingRel ? incomingRel.from : -1;
+            const outgoingIndices = outgoingRels.map(r => r.to).filter(i => i >= 0 && annotations[i]);
             const startIndex = findChainStart(index);
 
             highlightedChain = {
-                prevIndex,
-                nextIndex,
-                prevRelationId: incomingRel ? incomingRel.id : null,
-                nextRelationId: outgoingRel ? outgoingRel.id : null,
+                sourceIndex: index,
+                incomingIndex,
+                outgoingIndices,
+                relationIds: [
+                    ...(incomingRel ? [incomingRel.id] : []),
+                    ...outgoingRels.map(r => r.id)
+                ],
                 startIndex
             };
 
-            if (prevIndex >= 0 && annotationObjects[prevIndex]?.element) {
-                annotationObjects[prevIndex].element.classList.add('chain-blink');
+            if (incomingIndex >= 0 && annotationObjects[incomingIndex]?.element) {
+                annotationObjects[incomingIndex].element.classList.add('chain-blink');
             }
-            if (nextIndex >= 0 && annotationObjects[nextIndex]?.element) {
-                annotationObjects[nextIndex].element.classList.add('chain-blink');
-            }
+            outgoingIndices.forEach(nextIndex => {
+                if (annotationObjects[nextIndex]?.element) {
+                    annotationObjects[nextIndex].element.classList.add('chain-blink');
+                }
+            });
             if (startIndex >= 0 && annotationObjects[startIndex]?.element) {
                 annotationObjects[startIndex].element.classList.add('chain-start');
             }
 
             relationGroup.children.forEach(g => {
-                if (g.userData.relationId === highlightedChain.prevRelationId ||
-                    g.userData.relationId === highlightedChain.nextRelationId) {
+                if (highlightedChain.relationIds.includes(g.userData.relationId)) {
                     g.userData.chainBlink = true;
                 }
             });
+
+            if (outgoingIndices.length > 1) {
+                $('analysisStatus').textContent = `已選取匯集點：${annotations[index].text}，共有 ${outgoingIndices.length} 個第一層連出標示`;
+            }
         }
 
         function updateRelationBlink() {
@@ -1771,10 +1971,7 @@
 
         function rebuildAnnotations() {
             clearChainHighlight();
-            annotationObjects.forEach(obj => {
-                if (obj.parent) obj.parent.remove(obj);
-            });
-            annotationObjects = [];
+            clearAllSceneAnnotations();
 
             annotations.forEach((data, index) => {
                 const el = document.createElement('div');
@@ -2049,9 +2246,7 @@
         function deleteAnnotation(index) {
             if (index < 0 || index >= annotations.length) return;
 
-            if (annotationObjects[index] && annotationObjects[index].parent) {
-                annotationObjects[index].parent.remove(annotationObjects[index]);
-            }
+            removeAnnotationObject(annotationObjects[index]);
             annotationObjects.splice(index, 1);
 
             const toRemove = [];
@@ -3263,11 +3458,326 @@
             if (el) el.textContent = name || '3D 建築視圖';
         }
 
+        function encodeFilterValue(value) {
+            return encodeURIComponent(value ?? '');
+        }
+
+        function formatDateTime(value) {
+            if (!value) return '未知時間';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return value;
+            return date.toLocaleString('zh-Hant-TW', { hour12: false });
+        }
+
+        function normalizeProjectFileName(name) {
+            const next = String(name || '').trim().replace(/\.[^.]+$/, '');
+            return next || '未命名專案';
+        }
+
+        function setStatusLine(id, label, value) {
+            const el = $(id);
+            if (!el) return;
+            el.textContent = '';
+            const strong = document.createElement('strong');
+            strong.textContent = `${label}：`;
+            el.appendChild(strong);
+            el.append(` ${value}`);
+        }
+
+        function setGroupProjectListMessage(message) {
+            const list = $('groupProjectList');
+            list.textContent = '';
+            const box = document.createElement('div');
+            box.className = 'project-list-empty';
+            box.textContent = message;
+            list.appendChild(box);
+        }
+
+        function getProjectSummary(data) {
+            return {
+                annotations: (data.annotations || []).length,
+                relations: (data.relations || []).length,
+                additions: (data.additionsData || []).length,
+                mainFloors: data.mainBuildingData?.floors || 0,
+                mainBasements: data.mainBuildingData?.basements || 0
+            };
+        }
+
+        function clearCloudSelection() {
+            currentCloudProjectId = null;
+            currentCloudProjectGroup = '';
+            currentCloudFileName = '';
+            currentCloudUpdatedAt = '';
+        }
+
+        function isGroupAuthed(groupName) {
+            return !!groupName && (Date.now() - (groupAuthState[groupName] || 0) < GROUP_AUTH_TTL);
+        }
+
+        function updateGroupButtonsUI() {
+            document.querySelectorAll('.group-btn').forEach(btn => {
+                const groupName = btn.dataset.group;
+                btn.classList.toggle('active', groupName === activeProjectGroup);
+                btn.classList.toggle('authed', isGroupAuthed(groupName));
+            });
+        }
+
+        function updateCloudStatus() {
+            setStatusLine('cloudConnectionStatus', '雲端資料庫', '已連線');
+            const groupText = activeProjectGroup
+                ? `${activeProjectGroup}${isGroupAuthed(activeProjectGroup) ? '（已登入）' : '（未登入）'}`
+                : '尚未選擇';
+            setStatusLine('cloudGroupStatus', '目前組別', groupText);
+            const fileText = currentCloudFileName
+                ? `${currentCloudProjectGroup ? `${currentCloudProjectGroup} / ` : ''}${currentCloudFileName}${currentCloudUpdatedAt ? `（雲端更新：${formatDateTime(currentCloudUpdatedAt)}）` : ''}`
+                : '本機未綁定雲端檔案';
+            setStatusLine('cloudFileStatus', '目前檔案', fileText);
+            $('cloudDeleteBtn').disabled = !(currentCloudProjectId && currentCloudProjectGroup === activeProjectGroup);
+            updateGroupButtonsUI();
+        }
+
+        function setActiveProjectGroup(groupName) {
+            activeProjectGroup = groupName || '';
+            updateCloudStatus();
+        }
+
+        async function supabaseRequest(path, options = {}) {
+            const headers = {
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+                ...options.headers
+            };
+            const response = await fetch(`${SUPABASE_REST_URL}${path}`, { ...options, headers });
+            const rawText = await response.text();
+            if (!response.ok) {
+                throw new Error(rawText || `雲端資料庫 錯誤 (${response.status})`);
+            }
+            if (!rawText) return null;
+            return JSON.parse(rawText);
+        }
+
+        async function ensureGroupAuthorized(actionLabel) {
+            if (!activeProjectGroup) {
+                alert('請先點選第一組、第二組或第三組。');
+                return false;
+            }
+            if (isGroupAuthed(activeProjectGroup)) return true;
+            const password = prompt(`「${activeProjectGroup}」${actionLabel}需要密碼登入`, '');
+            if (password === null) return false;
+            if (password !== GROUP_PASSWORDS[activeProjectGroup]) {
+                alert('密碼錯誤。');
+                return false;
+            }
+            groupAuthState[activeProjectGroup] = Date.now();
+            updateCloudStatus();
+            return true;
+        }
+
+        async function fetchGroupProjects(groupName, forceRefresh = false) {
+            if (!groupName) return [];
+            if (!forceRefresh && Array.isArray(groupProjectsCache[groupName])) {
+                return groupProjectsCache[groupName];
+            }
+            const query = `?select=id,group_name,file_name,project_name,summary,updated_at,created_at&group_name=eq.${encodeFilterValue(groupName)}&order=updated_at.desc`;
+            const rows = await supabaseRequest(`/project_files${query}`);
+            groupProjectsCache[groupName] = rows || [];
+            return groupProjectsCache[groupName];
+        }
+
+        function renderGroupProjectList(projects) {
+            const list = $('groupProjectList');
+            if (!projects || projects.length === 0) {
+                setGroupProjectListMessage('此組目前沒有已儲存的檔案。');
+                return;
+            }
+            list.textContent = '';
+            projects.forEach(project => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'project-list-item';
+                if (project.id === currentCloudProjectId) btn.classList.add('active');
+                const summary = project.summary || {};
+                const title = document.createElement('strong');
+                title.textContent = project.file_name;
+                const meta = document.createElement('div');
+                meta.className = 'project-list-meta';
+                meta.textContent = `標註 ${summary.annotations || 0} 個 / 連線 ${summary.relations || 0} 條 / 附加建物 ${summary.additions || 0} 棟`;
+                const time = document.createElement('div');
+                time.className = 'project-list-meta';
+                time.textContent = `更新時間：${formatDateTime(project.updated_at)}`;
+                btn.appendChild(title);
+                btn.appendChild(meta);
+                btn.appendChild(time);
+                btn.addEventListener('click', () => loadProjectFromCloud(project.id, project.group_name));
+                list.appendChild(btn);
+            });
+        }
+
+        async function openGroupModal(groupName) {
+            setActiveProjectGroup(groupName);
+            $('groupModalTitle').textContent = `${groupName} 已儲存檔案`;
+            setGroupProjectListMessage('讀取中...');
+            $('groupModal').classList.remove('hidden');
+            $('groupModal').setAttribute('aria-hidden', 'false');
+            try {
+                const projects = await fetchGroupProjects(groupName, true);
+                renderGroupProjectList(projects);
+                $('analysisStatus').textContent = `已開啟 ${groupName} 檔案清單`;
+            } catch (error) {
+                setGroupProjectListMessage(`讀取失敗：${error.message}`);
+                $('analysisStatus').textContent = `讀取 ${groupName} 檔案清單失敗`;
+            }
+        }
+
+        function closeGroupModal() {
+            $('groupModal').classList.add('hidden');
+            $('groupModal').setAttribute('aria-hidden', 'true');
+        }
+
+        async function loadProjectFromCloud(projectId, groupName) {
+            try {
+                $('analysisStatus').textContent = '正在載入雲端檔案...';
+                const rows = await supabaseRequest(`/project_files?select=id,group_name,file_name,project_name,project_data,updated_at&id=eq.${encodeFilterValue(projectId)}&limit=1`);
+                const row = rows && rows[0];
+                if (!row) {
+                    alert('找不到該雲端檔案。');
+                    return;
+                }
+                loadProjectData(row.project_data || {});
+                updateFileName(row.project_name || row.file_name);
+                setActiveProjectGroup(groupName || row.group_name);
+                currentCloudProjectId = row.id;
+                currentCloudProjectGroup = row.group_name;
+                currentCloudFileName = row.file_name;
+                currentCloudUpdatedAt = row.updated_at;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(getProjectData()));
+                updateCloudStatus();
+                closeGroupModal();
+                $('analysisStatus').textContent = `已載入 ${row.group_name} / ${row.file_name}`;
+            } catch (error) {
+                alert(`載入雲端檔案失敗：${error.message}`);
+                $('analysisStatus').textContent = '載入雲端檔案失敗';
+            }
+        }
+
+        async function refreshOpenGroupList() {
+            if ($('groupModal').classList.contains('hidden') || !activeProjectGroup) return;
+            const projects = await fetchGroupProjects(activeProjectGroup, true);
+            renderGroupProjectList(projects);
+        }
+
+        async function saveProjectToCloud() {
+            if (!await ensureGroupAuthorized('儲存到雲端')) return;
+            const suggested = currentCloudFileName || normalizeProjectFileName($('projectFileName').textContent);
+            const requestedName = prompt(`請輸入要儲存到「${activeProjectGroup}」的檔名`, suggested);
+            if (requestedName === null) return;
+            const fileName = normalizeProjectFileName(requestedName);
+            const data = getProjectData();
+            data.projectName = fileName;
+            const payload = [{
+                group_name: activeProjectGroup,
+                file_name: fileName,
+                project_name: fileName,
+                project_data: data,
+                summary: getProjectSummary(data)
+            }];
+            try {
+                $('analysisStatus').textContent = '正在儲存到 雲端資料庫...';
+                const rows = await supabaseRequest('/project_files?on_conflict=group_name,file_name', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Prefer: 'resolution=merge-duplicates,return=representation'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const saved = rows && rows[0];
+                updateFileName(fileName);
+                currentCloudProjectId = saved?.id || currentCloudProjectId;
+                currentCloudProjectGroup = activeProjectGroup;
+                currentCloudFileName = fileName;
+                currentCloudUpdatedAt = saved?.updated_at || new Date().toISOString();
+                groupProjectsCache[activeProjectGroup] = null;
+                updateCloudStatus();
+                await refreshOpenGroupList();
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(getProjectData()));
+                $('analysisStatus').textContent = `已儲存到 ${activeProjectGroup} / ${fileName}`;
+            } catch (error) {
+                alert(`儲存雲端失敗：${error.message}`);
+                $('analysisStatus').textContent = '儲存雲端失敗';
+            }
+        }
+
+        async function deleteCurrentCloudProject() {
+            if (!currentCloudProjectId || !currentCloudFileName || currentCloudProjectGroup !== activeProjectGroup) {
+                alert('目前沒有已綁定的雲端檔案可刪除。');
+                return;
+            }
+            if (!await ensureGroupAuthorized('刪除雲端檔案')) return;
+            if (!confirm(`確定要刪除 ${activeProjectGroup} 的「${currentCloudFileName}」嗎？`)) return;
+            try {
+                $('analysisStatus').textContent = '正在刪除雲端檔案...';
+                await supabaseRequest(`/project_files?id=eq.${encodeFilterValue(currentCloudProjectId)}`, {
+                    method: 'DELETE',
+                    headers: { Prefer: 'return=minimal' }
+                });
+                const deletedName = currentCloudFileName;
+                clearCloudSelection();
+                groupProjectsCache[activeProjectGroup] = null;
+                updateCloudStatus();
+                await refreshOpenGroupList();
+                $('analysisStatus').textContent = `已刪除雲端檔案：${deletedName}`;
+            } catch (error) {
+                alert(`刪除雲端檔案失敗：${error.message}`);
+                $('analysisStatus').textContent = '刪除雲端檔案失敗';
+            }
+        }
+
+        async function exportProjectJson() {
+            if (!await ensureGroupAuthorized('下載 JSON')) return;
+            const data = getProjectData();
+            const fileName = normalizeProjectFileName(currentCloudFileName || data.projectName || 'forma-building-project');
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+            a.download = `${fileName}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            $('analysisStatus').textContent = `已下載 JSON：${fileName}.json`;
+        }
+
+        async function importProjectJson(file) {
+            if (!file) return;
+            if (!await ensureGroupAuthorized('上傳 JSON')) {
+                $('importInput').value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const data = JSON.parse(reader.result);
+                    clearCloudSelection();
+                    if (file.name) {
+                        updateFileName(normalizeProjectFileName(file.name));
+                    }
+                    loadProjectData(data);
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                    updateCloudStatus();
+                    $('analysisStatus').textContent = '已上傳並載入本機 JSON。';
+                } catch (error) {
+                    alert('無效的 JSON 檔案。');
+                    console.error(error);
+                } finally {
+                    $('importInput').value = '';
+                }
+            };
+            reader.readAsText(file);
+        }
+
         const STORAGE_KEY = 'forma_autosave';
 
         function getProjectData() {
             const data = {
-                version: 20,
+                version: 21,
                 settings: ['floors', 'basements', 'width', 'wallColor', 'glassColor', 'lightingPreset']
                     .reduce((o, id) => (o[id] = $(id).value, o), {}),
                 annotations: annotations.map(a => ({ ...a })),
@@ -3345,11 +3855,13 @@
         }
 
         function loadProjectData(data) {
+            clearChainHighlight();
+            clearAllSceneAnnotations();
             annotations = [];
-            annotationObjects = [];
             relations = [];
             relationGroup.clear();
             additionsGroup.clear();
+            groundGroup.clear();
             additionPrompts = [];
             selectedAnnotationIndex = -1;
             selectedForLink = [];
@@ -3471,11 +3983,14 @@
         function newProject() {
             if (!confirm('確定要開啟新檔嗎？目前編輯的內容將會遺失。')) return;
             localStorage.removeItem(STORAGE_KEY);
+            clearCloudSelection();
+            clearChainHighlight();
+            clearAllSceneAnnotations();
             annotations = [];
-            annotationObjects = [];
             relations = [];
             relationGroup.clear();
             additionsGroup.clear();
+            groundGroup.clear();
             additionPrompts = [];
             selectedAnnotationIndex = -1;
             selectedForLink = [];
@@ -3509,6 +4024,7 @@
             updateXray();
             setLighting('day');
             updateFileName('3D 建築視圖');
+            updateCloudStatus();
             $('analysisStatus').textContent = '已開啟新專案';
             controls.target.set(0, 0, 0);
             controls.update();
@@ -3648,7 +4164,19 @@
         };
         $('lineColor').onchange = () => { rebuildRelations();
             autoSave(); };
-        $('newProjectBtn').onclick = newProject;
+        $('newProjectBtn').onclick = async () => {
+            if (!await ensureGroupAuthorized('開啟新檔')) return;
+            newProject();
+        };
+        $('cloudSaveBtn').onclick = saveProjectToCloud;
+        $('cloudDeleteBtn').onclick = deleteCurrentCloudProject;
+        document.querySelectorAll('.group-btn').forEach(btn => {
+            btn.addEventListener('click', () => openGroupModal(btn.dataset.group));
+        });
+        $('groupModalCloseBtn').onclick = closeGroupModal;
+        $('groupModal').addEventListener('click', (e) => {
+            if (e.target === $('groupModal')) closeGroupModal();
+        });
 
         document.querySelectorAll('.axis-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -3952,33 +4480,8 @@
             scene.add(footprintPreview);
         });
 
-        $('exportBtn').onclick = () => {
-            const data = getProjectData();
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-            a.download = 'forma-building-project.json';
-            a.click();
-            URL.revokeObjectURL(a.href);
-        };
-        $('importInput').onchange = e => {
-            const f = e.target.files[0];
-            if (!f) return;
-            const reader = new FileReader();
-            reader.onload = () => {
-                try {
-                    const data = JSON.parse(reader.result);
-                    if (f.name) {
-                        const base = f.name.replace(/\.[^.]+$/, '');
-                        updateFileName(base);
-                    }
-                    loadProjectData(data);
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-                    $('analysisStatus').textContent = '已載入專案設定、標示與建物。';
-                } catch (e) { alert('無效的 JSON 檔案。');
-                    console.error(e); }
-            };
-            reader.readAsText(f);
-        };
+        $('exportBtn').onclick = exportProjectJson;
+        $('importInput').onchange = e => importProjectJson(e.target.files[0]);
 
         function resize() {
             const r = canvas.getBoundingClientRect();
@@ -4019,6 +4522,7 @@
             updateFileName('3D 建築視圖');
             $('analysisStatus').textContent = '就緒 — 可調整參數後生成建築';
         }
+        updateCloudStatus();
 
         updateMultiLinkUI();
         $('deleteSelectedAnnotationBtn').disabled = true;
