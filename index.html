@@ -960,11 +960,8 @@
 
         const $ = id => document.getElementById(id),
             canvas = $('canvas');
-        const SUPABASE_URL = 'https://otdjrzpmtrojlcisoxeb.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90ZGpyenBtdHJvamxjaXNveGViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MjgzMzksImV4cCI6MjA4NjAwNDMzOX0.B_OUasemoz8E1UiRVT4zlkv5Yf7nVnOW0LZs0Wkp3Ik';
-        const SUPABASE_REST_URL = `${SUPABASE_URL}/rest/v1`;
+        const API_BASE = '/api';
         const PROJECT_GROUPS = ['第一組', '第二組', '第三組'];
-        const GROUP_PASSWORDS = { 第一組: 'w5131', 第二組: 'w5132', 第三組: 'w5133' };
         const GROUP_AUTH_TTL = 30 * 60 * 1000;
         const scene = new THREE.Scene();
         scene.background = new THREE.Color('#dfe7f1');
@@ -3541,16 +3538,24 @@
             updateCloudStatus();
         }
 
-        async function supabaseRequest(path, options = {}) {
-            const headers = {
-                apikey: SUPABASE_ANON_KEY,
-                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-                ...options.headers
-            };
-            const response = await fetch(`${SUPABASE_REST_URL}${path}`, { ...options, headers });
+        async function apiRequest(path, options = {}) {
+            const response = await fetch(`${API_BASE}${path}`, {
+                ...options,
+                headers: {
+                    ...options.headers
+                }
+            });
             const rawText = await response.text();
             if (!response.ok) {
-                throw new Error(rawText || `雲端資料庫 錯誤 (${response.status})`);
+                try {
+                    const parsed = JSON.parse(rawText);
+                    throw new Error(parsed.error || `雲端代理錯誤 (${response.status})`);
+                } catch (error) {
+                    if (error instanceof SyntaxError) {
+                        throw new Error(rawText || `雲端代理錯誤 (${response.status})`);
+                    }
+                    throw error;
+                }
             }
             if (!rawText) return null;
             return JSON.parse(rawText);
@@ -3564,7 +3569,17 @@
             if (isGroupAuthed(activeProjectGroup)) return true;
             const password = prompt(`「${activeProjectGroup}」${actionLabel}需要密碼登入`, '');
             if (password === null) return false;
-            if (password !== GROUP_PASSWORDS[activeProjectGroup]) {
+            const verifiedResult = await apiRequest('/verify-group-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    group_name: activeProjectGroup,
+                    password
+                })
+            });
+            if (!verifiedResult?.verified) {
                 alert('密碼錯誤。');
                 return false;
             }
@@ -3578,8 +3593,7 @@
             if (!forceRefresh && Array.isArray(groupProjectsCache[groupName])) {
                 return groupProjectsCache[groupName];
             }
-            const query = `?select=id,group_name,file_name,project_name,summary,updated_at,created_at&group_name=eq.${encodeFilterValue(groupName)}&order=updated_at.desc`;
-            const rows = await supabaseRequest(`/project_files${query}`);
+            const rows = await apiRequest(`/group-projects?group_name=${encodeFilterValue(groupName)}`);
             groupProjectsCache[groupName] = rows || [];
             return groupProjectsCache[groupName];
         }
@@ -3637,8 +3651,7 @@
         async function loadProjectFromCloud(projectId, groupName) {
             try {
                 $('analysisStatus').textContent = '正在載入雲端檔案...';
-                const rows = await supabaseRequest(`/project_files?select=id,group_name,file_name,project_name,project_data,updated_at&id=eq.${encodeFilterValue(projectId)}&limit=1`);
-                const row = rows && rows[0];
+                const row = await apiRequest(`/project-file?id=${encodeFilterValue(projectId)}`);
                 if (!row) {
                     alert('找不到該雲端檔案。');
                     return;
@@ -3674,24 +3687,22 @@
             const fileName = normalizeProjectFileName(requestedName);
             const data = getProjectData();
             data.projectName = fileName;
-            const payload = [{
+            const payload = {
                 group_name: activeProjectGroup,
                 file_name: fileName,
                 project_name: fileName,
                 project_data: data,
                 summary: getProjectSummary(data)
-            }];
+            };
             try {
                 $('analysisStatus').textContent = '正在儲存到 雲端資料庫...';
-                const rows = await supabaseRequest('/project_files?on_conflict=group_name,file_name', {
+                const saved = await apiRequest('/project-file', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        Prefer: 'resolution=merge-duplicates,return=representation'
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(payload)
                 });
-                const saved = rows && rows[0];
                 updateFileName(fileName);
                 currentCloudProjectId = saved?.id || currentCloudProjectId;
                 currentCloudProjectGroup = activeProjectGroup;
@@ -3717,9 +3728,8 @@
             if (!confirm(`確定要刪除 ${activeProjectGroup} 的「${currentCloudFileName}」嗎？`)) return;
             try {
                 $('analysisStatus').textContent = '正在刪除雲端檔案...';
-                await supabaseRequest(`/project_files?id=eq.${encodeFilterValue(currentCloudProjectId)}`, {
-                    method: 'DELETE',
-                    headers: { Prefer: 'return=minimal' }
+                await apiRequest(`/project-file?id=${encodeFilterValue(currentCloudProjectId)}`, {
+                    method: 'DELETE'
                 });
                 const deletedName = currentCloudFileName;
                 clearCloudSelection();
