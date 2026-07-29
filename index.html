@@ -953,6 +953,7 @@
     </div>
 
     <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.164.1/build/three.module.js","three/addons/":"https://unpkg.com/three@0.164.1/examples/jsm/"}}</script>
+    <script src="./cloud-config.js"></script>
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -960,6 +961,9 @@
 
         const $ = id => document.getElementById(id),
             canvas = $('canvas');
+        const CLOUD_CONFIG = window.APP_CLOUD_CONFIG || null;
+        const DIRECT_SUPABASE_ENABLED = !!(CLOUD_CONFIG?.supabaseUrl && CLOUD_CONFIG?.anonKey);
+        const SUPABASE_REST_URL = DIRECT_SUPABASE_ENABLED ? `${String(CLOUD_CONFIG.supabaseUrl).replace(/\/$/, '')}/rest/v1` : '';
         const API_BASE = '/api';
         const PROJECT_GROUPS = ['第一組', '第二組', '第三組'];
         const GROUP_AUTH_TTL = 30 * 60 * 1000;
@@ -3538,7 +3542,78 @@
             updateCloudStatus();
         }
 
+        async function directSupabaseRequest(path, options = {}) {
+            const response = await fetch(`${SUPABASE_REST_URL}${path}`, {
+                ...options,
+                headers: {
+                    apikey: CLOUD_CONFIG.anonKey,
+                    Authorization: `Bearer ${CLOUD_CONFIG.anonKey}`,
+                    ...options.headers
+                }
+            });
+            const rawText = await response.text();
+            if (!response.ok) {
+                throw new Error(rawText || `雲端資料庫 錯誤 (${response.status})`);
+            }
+            return rawText ? JSON.parse(rawText) : null;
+        }
+
         async function apiRequest(path, options = {}) {
+            if (DIRECT_SUPABASE_ENABLED) {
+                if (path.startsWith('/group-projects?')) {
+                    const params = new URLSearchParams(path.split('?')[1] || '');
+                    const groupName = params.get('group_name') || '';
+                    return directSupabaseRequest(
+                        `/project_files?select=id,group_name,file_name,project_name,summary,updated_at,created_at&group_name=eq.${encodeFilterValue(groupName)}&order=updated_at.desc`
+                    );
+                }
+                if (path.startsWith('/project-file?id=') && (!options.method || options.method === 'GET')) {
+                    const params = new URLSearchParams(path.split('?')[1] || '');
+                    const projectId = params.get('id') || '';
+                    const rows = await directSupabaseRequest(
+                        `/project_files?select=id,group_name,file_name,project_name,project_data,updated_at&id=eq.${encodeFilterValue(projectId)}&limit=1`
+                    );
+                    return rows?.[0] || null;
+                }
+                if (path === '/project-file' && options.method === 'POST') {
+                    const body = JSON.parse(options.body || '{}');
+                    const rows = await directSupabaseRequest('/project_files?on_conflict=group_name,file_name', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Prefer: 'resolution=merge-duplicates,return=representation'
+                        },
+                        body: JSON.stringify([body])
+                    });
+                    return rows?.[0] || null;
+                }
+                if (path.startsWith('/project-file?id=') && options.method === 'DELETE') {
+                    const params = new URLSearchParams(path.split('?')[1] || '');
+                    const projectId = params.get('id') || '';
+                    await directSupabaseRequest(`/project_files?id=eq.${encodeFilterValue(projectId)}`, {
+                        method: 'DELETE',
+                        headers: {
+                            Prefer: 'return=minimal'
+                        }
+                    });
+                    return { deleted: true };
+                }
+                if (path === '/verify-group-password' && options.method === 'POST') {
+                    const body = JSON.parse(options.body || '{}');
+                    const verified = await directSupabaseRequest('/rpc/verify_group_password', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            p_group_name: body.group_name || '',
+                            p_password: body.password || ''
+                        })
+                    });
+                    return { verified: !!verified };
+                }
+            }
+
             const response = await fetch(`${API_BASE}${path}`, {
                 ...options,
                 headers: {

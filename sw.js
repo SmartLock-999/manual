@@ -1,7 +1,8 @@
-const CACHE_NAME = '3d-annotation-v2';
+const CACHE_NAME = '3d-annotation-v3';
 const urlsToCache = [
   './',
   './index.html',
+  './cloud-config.js',
   './icon.svg',
   'https://unpkg.com/three@0.164.1/build/three.module.js',
   'https://unpkg.com/three@0.164.1/examples/jsm/controls/OrbitControls.js',
